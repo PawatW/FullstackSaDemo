@@ -35,7 +35,7 @@ export default function InventoryPage() {
     const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
-    const formData = new FormData(form);
+    const formData = new FormData(event.currentTarget);
     const productName = String(formData.get('productName') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
     const unit = String(formData.get('unit') ?? '').trim();
@@ -44,14 +44,14 @@ export default function InventoryPage() {
 
     const quantityRaw = formData.get('quantity');
     const quantity = quantityRaw === null || quantityRaw === '' ? 0 : Number(quantityRaw);
-    if (Number.isNaN(quantity) || quantity < 0 || !Number.isInteger(quantity)) {
+    if (Number.isNaN(quantity) || quantity < 0) {
       setError('จำนวนสินค้าไม่ถูกต้อง');
       return;
     }
 
     const priceRaw = formData.get('pricePerUnit');
     const pricePerUnit = priceRaw === null || priceRaw === '' ? undefined : Number(priceRaw);
-    if (pricePerUnit !== undefined && (Number.isNaN(pricePerUnit) || pricePerUnit <= 0)) {
+    if (pricePerUnit !== undefined && Number.isNaN(pricePerUnit)) {
       setError('ราคา/หน่วยไม่ถูกต้อง');
       return;
     }

@@ -24,17 +24,6 @@ export default function CustomersPage() {
     setSuccessMessage(null);
 
     const formData = new FormData(form);
-    const requiredName = String(formData.get('customerName') ?? '').trim();
-    if (!requiredName) {
-      setError('กรุณากรอกชื่อลูกค้า');
-      return;
-    }
-
-    const toOptional = (value: FormDataEntryValue | null) => {
-      const text = typeof value === 'string' ? value.trim() : '';
-      return text ? text : undefined;
-    };
-
     const payload = {
       customerName: requiredName,
       address: toOptional(formData.get('address')),
