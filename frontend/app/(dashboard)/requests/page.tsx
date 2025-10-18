@@ -17,12 +17,17 @@ export default function RequestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [draftItems, setDraftItems] = useState<DraftRequestItem[]>([{ productId: '', quantity: 1 }]);
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
   const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' || role === 'ADMIN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
   const { data: approvedRequests, mutate: mutateApproved } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/approved-requests' : null, token, { refreshInterval: 15000 });
-  const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' || role === 'ADMIN' ? '/requests/ready-to-close' : null, token, { refreshInterval: 30000 });
+  const canClose = role === 'TECHNICIAN' || role === 'ADMIN';
+  const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
+    refreshInterval: 30000
+  });
   const { data: requestItems } = useAuthedSWR<RequestItem[]>(selectedRequestId ? `/requests/${selectedRequestId}/items` : null, token);
 
   const canCreate = role === 'TECHNICIAN' || role === 'ADMIN';
@@ -37,6 +42,11 @@ export default function RequestsPage() {
 
   const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1 }]);
   const removeDraftRow = (index: number) => setDraftItems((prev) => prev.filter((_, idx) => idx !== index));
+
+  const resetCreateForm = () => {
+    setDraftItems([{ productId: '', quantity: 1 }]);
+    setFormResetKey((prev) => prev + 1);
+  };
 
   const handleCreateRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -75,8 +85,9 @@ export default function RequestsPage() {
         body: JSON.stringify(payload),
         token
       });
-      setDraftItems([{ productId: '', quantity: 1 }]);
       event.currentTarget.reset();
+      resetCreateForm();
+      setCreateModalOpen(false);
       mutatePending();
       mutateApproved();
     } catch (err) {
@@ -139,68 +150,131 @@ export default function RequestsPage() {
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
       {canCreate && (
-        <form onSubmit={handleCreateRequest} className="card space-y-4 p-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Technician: สร้างคำขอเบิก</h2>
-            <p className="text-sm text-slate-500">POST /requests พร้อมรายการสินค้า</p>
+        <section className="card space-y-4 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Technician: สร้างคำขอเบิก</h2>
+              <p className="text-sm text-slate-500">POST /requests พร้อมรายการสินค้า</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                resetCreateForm();
+                setCreateModalOpen(true);
+              }}
+              className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+            >
+              เปิดฟอร์มสร้างคำขอ
+            </button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
-              <select name="orderId" required>
-                <option value="">เลือก Order</option>
-                {(confirmedOrders ?? []).map((order) => (
-                  <option key={order.orderId} value={order.orderId}>
-                    {order.orderId} • ลูกค้า {order.customerId}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
-              <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
-              <textarea name="description" rows={3} placeholder="ระบุหน้างานหรือหมายเหตุ" />
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
-              <button type="button" onClick={addDraftRow} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white">
-                เพิ่มสินค้า
+        </section>
+      )}
+
+      {canCreate && isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
+          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">สร้างคำขอเบิกวัสดุ</h2>
+                <p className="text-sm text-slate-500">กรอกข้อมูลคำขอและรายการสินค้าให้ครบถ้วนก่อนยืนยัน</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetCreateForm();
+                  setCreateModalOpen(false);
+                }}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+              >
+                ปิด
               </button>
             </div>
-            <div className="space-y-3">
-              {draftItems.map((item, index) => (
-                <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                  <select value={item.productId} onChange={(event) => updateDraftItem(index, { productId: event.target.value })} className="md:col-span-2">
-                    <option value="">เลือกสินค้า</option>
-                    {(products ?? []).map((product) => (
-                      <option key={product.productId} value={product.productId}>
-                        {product.productName} ({product.productId})
+            <form key={formResetKey} onSubmit={handleCreateRequest} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
+                  <select name="orderId" required>
+                    <option value="">เลือก Order</option>
+                    {(confirmedOrders ?? []).map((order) => (
+                      <option key={order.orderId} value={order.orderId}>
+                        {order.orderId} • ลูกค้า {order.customerId}
                       </option>
                     ))}
                   </select>
-                  <input type="number" min={1} value={item.quantity} onChange={(event) => updateDraftItem(index, { quantity: Number(event.target.value) })} />
-                  {draftItems.length > 1 && (
-                    <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                      ลบ
-                    </button>
-                  )}
                 </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
-              <span>จำนวนสินค้ารวม</span>
-              <span className="font-semibold text-slate-800">{totalQuantity} ชิ้น</span>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
+                  <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
+                  <textarea name="description" rows={3} placeholder="ระบุหน้างานหรือหมายเหตุ" />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
+                  <button
+                    type="button"
+                    onClick={addDraftRow}
+                    className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+                  >
+                    เพิ่มสินค้า
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {draftItems.map((item, index) => (
+                    <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
+                      <select
+                        value={item.productId}
+                        onChange={(event) => updateDraftItem(index, { productId: event.target.value })}
+                        className="md:col-span-2"
+                      >
+                        <option value="">เลือกสินค้า</option>
+                        {(products ?? []).map((product) => (
+                          <option key={product.productId} value={product.productId}>
+                            {product.productName} ({product.productId})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(event) => updateDraftItem(index, { quantity: Number(event.target.value) })}
+                      />
+                      {draftItems.length > 1 && (
+                        <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                          ลบ
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
+                  <span>จำนวนสินค้ารวม</span>
+                  <span className="font-semibold text-slate-800">{totalQuantity} ชิ้น</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetCreateForm();
+                    setCreateModalOpen(false);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ยกเลิก
+                </button>
+                <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                  บันทึกคำขอเบิก
+                </button>
+              </div>
+            </form>
           </div>
-          <button type="submit" className="w-full md:w-auto">
-            บันทึกคำขอเบิก
-          </button>
-        </form>
+        </div>
       )}
 
       {canApprove && (
@@ -285,7 +359,7 @@ export default function RequestsPage() {
         </section>
       )}
 
-      {canFulfill && (
+      {canClose && (
         <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">คำขอที่พร้อมปิด</h2>
