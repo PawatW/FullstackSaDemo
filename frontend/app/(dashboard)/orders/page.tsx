@@ -16,6 +16,7 @@ interface DraftItem {
 export default function OrdersPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1, unitPrice: 0 }]);
   const [isSubmitting, setSubmitting] = useState(false);
@@ -56,6 +57,7 @@ export default function OrdersPage() {
     event.preventDefault();
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     setSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
@@ -106,6 +108,7 @@ export default function OrdersPage() {
   const handleCloseOrder = async (orderId: string) => {
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>(`/orders/${orderId}/close`, {
         method: 'PUT',
@@ -113,6 +116,7 @@ export default function OrdersPage() {
       });
       mutateReady();
       mutateAll();
+      setSuccessMessage('ปิด Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิด Order ได้');
     }
@@ -126,6 +130,9 @@ export default function OrdersPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
       {canCreate && (
         <section className="card space-y-4 p-6">

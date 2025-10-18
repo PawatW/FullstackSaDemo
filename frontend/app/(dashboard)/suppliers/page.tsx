@@ -19,6 +19,7 @@ export default function SuppliersPage() {
     event.preventDefault();
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(event.currentTarget);
     const payload = {
@@ -38,6 +39,7 @@ export default function SuppliersPage() {
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();
+      setSuccessMessage('เพิ่ม Supplier เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถเพิ่ม Supplier ได้');
     }
@@ -51,6 +53,9 @@ export default function SuppliersPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
       <section className="card space-y-4 p-6">
         <h2 className="text-lg font-semibold text-slate-900">รายชื่อ Supplier</h2>

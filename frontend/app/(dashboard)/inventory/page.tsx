@@ -11,6 +11,7 @@ export default function InventoryPage() {
   const { data: products, mutate, isLoading } = useAuthedSWR<Product[]>('/products', token, { refreshInterval: 30000 });
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [adjusting, setAdjusting] = useState<Record<string, boolean>>({});
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
@@ -31,6 +32,7 @@ export default function InventoryPage() {
     event.preventDefault();
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     const formData = new FormData(event.currentTarget);
     const payload = {
       productName: formData.get('productName'),
@@ -52,6 +54,7 @@ export default function InventoryPage() {
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();
+      setSuccessMessage('เพิ่มสินค้าเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถสร้างสินค้าได้');
     }
@@ -61,12 +64,14 @@ export default function InventoryPage() {
     if (!token || !diff) return;
     setAdjusting((prev) => ({ ...prev, [productId]: true }));
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>(`/products/${productId}/adjust?diff=${diff}`, {
         method: 'PUT',
         token
       });
       mutate();
+      setSuccessMessage('ปรับสต็อกเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปรับสต็อกได้');
     } finally {
@@ -82,6 +87,9 @@ export default function InventoryPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
       <div className="card space-y-6 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

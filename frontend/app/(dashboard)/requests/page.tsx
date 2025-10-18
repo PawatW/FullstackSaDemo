@@ -15,6 +15,7 @@ interface DraftRequestItem {
 export default function RequestsPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [draftItems, setDraftItems] = useState<DraftRequestItem[]>([{ productId: '', quantity: 1 }]);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -52,6 +53,7 @@ export default function RequestsPage() {
     event.preventDefault();
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(event.currentTarget);
     const orderId = String(formData.get('orderId'));
@@ -90,6 +92,7 @@ export default function RequestsPage() {
       setCreateModalOpen(false);
       mutatePending();
       mutateApproved();
+      setSuccessMessage('สร้างคำขอเบิกสำเร็จ');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถสร้างคำขอเบิกได้');
     }
@@ -98,6 +101,7 @@ export default function RequestsPage() {
   const handleApprove = async (requestId: string, action: 'approve' | 'reject') => {
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>(`/requests/${requestId}/${action}`, {
         method: 'PUT',
@@ -105,6 +109,7 @@ export default function RequestsPage() {
       });
       mutatePending();
       mutateApproved();
+      setSuccessMessage(action === 'approve' ? 'อนุมัติคำขอเรียบร้อย' : 'ปฏิเสธคำขอเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถอัปเดตสถานะได้');
     }
@@ -113,6 +118,7 @@ export default function RequestsPage() {
   const handleFulfill = async (requestItemId: string, fulfillQty: number) => {
     if (!token || fulfillQty <= 0) return;
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>('/stock/fulfill', {
         method: 'POST',
@@ -121,6 +127,7 @@ export default function RequestsPage() {
       });
       mutateApproved();
       mutateReady();
+      setSuccessMessage('บันทึกการเบิกเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถเบิกสินค้าได้');
     }
@@ -129,12 +136,14 @@ export default function RequestsPage() {
   const handleCloseRequest = async (requestId: string) => {
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>(`/requests/${requestId}/close`, {
         method: 'PUT',
         token
       });
       mutateReady();
+      setSuccessMessage('ปิดคำขอเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิดคำขอได้');
     }
@@ -148,6 +157,9 @@ export default function RequestsPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
       {canCreate && (
         <section className="card space-y-4 p-6">
