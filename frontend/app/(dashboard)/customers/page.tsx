@@ -24,11 +24,18 @@ export default function CustomersPage() {
     setSuccessMessage(null);
 
     const formData = new FormData(form);
+    const customerName = String(formData.get('customerName') ?? '').trim(); // FIX: extract name and trim it
+
+    if (!customerName) { // FIX: check if name is empty
+      setError('กรุณากรอกชื่อลูกค้า');
+      return;
+    }
+
     const payload = {
-      customerName: formData.get('customerName'),
-      address: formData.get('address'),
-      phone: formData.get('phone'),
-      email: formData.get('email')
+      customerName: customerName, // Use the extracted value
+      address: toOptional(formData.get('address')),
+      phone: toOptional(formData.get('phone')),
+      email: toOptional(formData.get('email'))
     };
 
     try {
