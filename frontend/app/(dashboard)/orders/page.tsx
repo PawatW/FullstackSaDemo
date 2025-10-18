@@ -45,14 +45,7 @@ export default function OrdersPage() {
 
   const totalAmount = useMemo(() => {
     return draftItems.reduce((sum, item) => {
-      const product = productMap.get(item.productId);
-      if (!product || product.pricePerUnit === undefined || product.pricePerUnit === null) {
-        return sum;
-      }
-      const price = Number(product.pricePerUnit);
-      if (Number.isNaN(price)) {
-        return sum;
-      }
+      const price = productMap.get(item.productId)?.pricePerUnit ?? 0;
       return sum + (item.quantity || 0) * price;
     }, 0);
   }, [draftItems, productMap]);
@@ -87,39 +80,23 @@ export default function OrdersPage() {
       .filter((item) => item.productId && item.quantity > 0)
       .map((item) => {
         const product = productMap.get(item.productId);
-        const priceValue = product?.pricePerUnit;
-        const numericPrice = priceValue !== undefined && priceValue !== null ? Number(priceValue) : NaN;
-
+        const unitPrice = product?.pricePerUnit ?? 0;
         return {
           productId: item.productId,
           quantity: item.quantity,
-          unitPrice: numericPrice,
+          unitPrice,
+          lineTotal: item.quantity * unitPrice,
           fulfilledQty: 0,
           remainingQty: item.quantity
         };
       });
-
-    if (preparedItems.length === 0) {
-      setError('กรุณาเลือกรายการสินค้าอย่างน้อย 1 รายการ');
-      setSubmitting(false);
-      return;
-    }
-
-    const hasInvalidPrice = preparedItems.some((item) => !Number.isFinite(item.unitPrice) || item.unitPrice <= 0);
-    if (hasInvalidPrice) {
-      setError('พบสินค้าที่ไม่ได้ตั้งราคา กรุณาตรวจสอบรายการสินค้าอีกครั้ง');
-      setSubmitting(false);
-      return;
-    }
-
-    const payloadTotal = preparedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
     const payload = {
       order: {
         orderDate,
         customerId,
         status,
-        totalAmount: payloadTotal
+        totalAmount: computedTotal
       },
       items: preparedItems
     };
@@ -252,9 +229,8 @@ export default function OrdersPage() {
                 <div className="space-y-3">
                   {draftItems.map((item, index) => {
                     const product = productMap.get(item.productId);
-                    const resolvedPrice = Number(product?.pricePerUnit);
-                    const hasPrice = Number.isFinite(resolvedPrice) && resolvedPrice > 0;
-                    const lineTotal = hasPrice ? (item.quantity || 0) * resolvedPrice : 0;
+                    const unitPrice = product?.pricePerUnit ?? 0;
+                    const lineTotal = (item.quantity || 0) * unitPrice;
                     return (
                       <div
                         key={`${formResetKey}-${index}`}
@@ -284,23 +260,13 @@ export default function OrdersPage() {
                         <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                           <span>ราคา/หน่วย</span>
                           <span className="text-sm font-semibold text-slate-800">
-                            {hasPrice
-                              ? `฿${resolvedPrice.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}`
-                              : 'ยังไม่ตั้งราคา'}
+                            ฿{unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                           <span>ยอดรวม</span>
                           <span className="text-sm font-semibold text-slate-800">
-                            {hasPrice
-                              ? `฿${lineTotal.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}`
-                              : '—'}
+                            ฿{lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         {draftItems.length > 1 && (
