@@ -11,6 +11,8 @@ export default function StockPage() {
   const { role, token } = useAuth();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isStockInModalOpen, setStockInModalOpen] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   const { data: products } = useAuthedSWR<Product[]>(role ? '/products' : null, token);
   const { data: suppliers } = useAuthedSWR<Supplier[]>(role ? '/suppliers' : null, token);
@@ -42,6 +44,8 @@ export default function StockPage() {
       });
       setMessage('บันทึกสินค้าเข้าเรียบร้อย');
       event.currentTarget.reset();
+      setStockInModalOpen(false);
+      setFormResetKey((prev) => prev + 1);
       mutate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถบันทึกสินค้าเข้าได้');
@@ -59,47 +63,100 @@ export default function StockPage() {
       {message && <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{message}</div>}
 
       {canStockIn && (
-        <form onSubmit={handleStockIn} className="card space-y-4 p-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">บันทึกสินค้าเข้า (Stock-In)</h2>
-            <p className="text-sm text-slate-500">POST /stock/in พร้อม Supplier reference</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-500">สินค้า</label>
-              <select name="productId" required>
-                <option value="">เลือกสินค้า</option>
-                {(products ?? []).map((product) => (
-                  <option key={product.productId} value={product.productId}>
-                    {product.productName} ({product.productId})
-                  </option>
-                ))}
-              </select>
+        <>
+          <section className="card space-y-4 p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">บันทึกสินค้าเข้า (Stock-In)</h2>
+                <p className="text-sm text-slate-500">POST /stock/in พร้อม Supplier reference</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setMessage(null);
+                  setStockInModalOpen(true);
+                  setFormResetKey((prev) => prev + 1);
+                }}
+                className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+              >
+                เปิดฟอร์ม Stock-In
+              </button>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500">จำนวน</label>
-              <input name="quantity" type="number" min={1} required />
+          </section>
+
+          {isStockInModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
+              <div className="w-full max-w-3xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">บันทึกสินค้าเข้า (Stock-In)</h2>
+                    <p className="text-sm text-slate-500">เลือกสินค้าและระบุจำนวนก่อนยืนยัน</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStockInModalOpen(false);
+                      setFormResetKey((prev) => prev + 1);
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={formResetKey} onSubmit={handleStockIn} className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-slate-500">สินค้า</label>
+                      <select name="productId" required>
+                        <option value="">เลือกสินค้า</option>
+                        {(products ?? []).map((product) => (
+                          <option key={product.productId} value={product.productId}>
+                            {product.productName} ({product.productId})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">จำนวน</label>
+                      <input name="quantity" type="number" min={1} required />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">Supplier</label>
+                      <select name="supplierId">
+                        <option value="">เลือก Supplier</option>
+                        {(suppliers ?? []).map((supplier) => (
+                          <option key={supplier.supplierId} value={supplier.supplierId}>
+                            {supplier.supplierName} ({supplier.supplierId})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-slate-500">หมายเหตุ</label>
+                      <textarea name="note" rows={3} placeholder="อ้างอิงใบส่งของหรือข้อมูลขนส่ง" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStockInModalOpen(false);
+                        setFormResetKey((prev) => prev + 1);
+                      }}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                      บันทึก
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500">Supplier</label>
-              <select name="supplierId">
-                <option value="">เลือก Supplier</option>
-                {(suppliers ?? []).map((supplier) => (
-                  <option key={supplier.supplierId} value={supplier.supplierId}>
-                    {supplier.supplierName} ({supplier.supplierId})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-500">หมายเหตุ</label>
-              <textarea name="note" rows={3} placeholder="อ้างอิงใบส่งของหรือข้อมูลขนส่ง" />
-            </div>
-          </div>
-          <button type="submit" className="w-full md:w-auto">
-            บันทึก
-          </button>
-        </form>
+          )}
+        </>
       )}
 
       {role === 'ADMIN' && transactions && (

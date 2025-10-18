@@ -16,9 +16,12 @@ interface DraftItem {
 export default function OrdersPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1, unitPrice: 0 }]);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
@@ -44,10 +47,17 @@ export default function OrdersPage() {
   const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1, unitPrice: 0 }]);
   const removeDraftRow = (index: number) => setDraftItems((prev) => prev.filter((_, idx) => idx !== index));
 
+  const resetCreateForm = () => {
+    setDraftItems([{ productId: '', quantity: 1, unitPrice: 0 }]);
+    setFormResetKey((prev) => prev + 1);
+    setSubmitting(false);
+  };
+
   const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     setSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
@@ -85,8 +95,10 @@ export default function OrdersPage() {
       mutateAll();
       mutateConfirmed();
       mutateReady();
-      setDraftItems([{ productId: '', quantity: 1, unitPrice: 0 }]);
+      resetCreateForm();
       event.currentTarget.reset();
+      setCreateModalOpen(false);
+      setSuccessMessage('สร้าง Order สำเร็จ');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้าง Order ไม่สำเร็จ');
     } finally {
@@ -97,6 +109,7 @@ export default function OrdersPage() {
   const handleCloseOrder = async (orderId: string) => {
     if (!token) return;
     setError(null);
+    setSuccessMessage(null);
     try {
       await apiFetch<void>(`/orders/${orderId}/close`, {
         method: 'PUT',
@@ -104,6 +117,7 @@ export default function OrdersPage() {
       });
       mutateReady();
       mutateAll();
+      setSuccessMessage('ปิด Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิด Order ได้');
     }
@@ -117,120 +131,187 @@ export default function OrdersPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {canCreate && (
         <section className="card space-y-4 p-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Order ที่ได้รับการยืนยัน</h2>
-            <p className="text-sm text-slate-500">ดึงจาก /orders/confirmed</p>
-          </div>
-          <div className="space-y-3">
-            {(confirmedOrders ?? []).map((order) => (
-              <button
-                key={order.orderId}
-                type="button"
-                onClick={() => setSelectedOrder(order.orderId)}
-                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${selectedOrder === order.orderId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-semibold text-slate-800">{order.orderId}</p>
-                    <p className="text-xs text-slate-500">ลูกค้า: {order.customerId} • สถานะ: {order.status}</p>
-                  </div>
-                  <span className="text-xs text-slate-400">{format(new Date(order.orderDate), 'dd MMM yyyy')}</span>
-                </div>
-              </button>
-            ))}
-            {(confirmedOrders?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มี Order ที่ยืนยัน</p>}
-          </div>
-          {selectedOrder && orderItems && (
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h3 className="text-sm font-semibold text-slate-800">รายการสินค้าใน {selectedOrder}</h3>
-              <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                {orderItems.map((item) => (
-                  <li key={item.orderItemId} className="flex justify-between">
-                    <span>
-                      {item.productId} • {item.quantity} ชิ้น
-                    </span>
-                    <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-
-        {canCreate && (
-          <form onSubmit={handleCreateOrder} className="card space-y-4 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
-              <p className="text-sm text-slate-500">เรียกใช้ POST /orders และผูก Staff ผ่าน JWT</p>
+              <h2 className="text-lg font-semibold text-slate-900">Sales: สร้าง Order ใหม่</h2>
+              <p className="text-sm text-slate-500">POST /orders พร้อมรายการสินค้าและผูก Staff ผ่าน JWT</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-medium text-slate-500">ลูกค้า</label>
-                <select name="customerId" required className="w-full">
-                  <option value="">เลือก Customer</option>
-                  {(customers ?? []).map((customer) => (
-                    <option key={customer.customerId} value={customer.customerId}>
-                      {customer.customerName} ({customer.customerId})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
-                <input name="orderDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-500">สถานะ</label>
-                <select name="status" defaultValue="Pending">
-                  <option value="Pending">Pending</option>
-                  <option value="Confirmed">Confirmed</option>
-                </select>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setSuccessMessage(null);
+                resetCreateForm();
+                setCreateModalOpen(true);
+              }}
+              className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+            >
+              เปิดฟอร์มสร้าง Order
+            </button>
+          </div>
+        </section>
+      )}
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
-                <button type="button" onClick={addDraftRow} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white">
-                  เพิ่มรายการ
+      {canCreate && isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
+          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
+                <p className="text-sm text-slate-500">กรอกข้อมูล Order พร้อมรายการสินค้าให้ครบถ้วน</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetCreateForm();
+                  setCreateModalOpen(false);
+                }}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+              >
+                ปิด
+              </button>
+            </div>
+            <form key={formResetKey} onSubmit={handleCreateOrder} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-medium text-slate-500">ลูกค้า</label>
+                  <select name="customerId" required className="w-full">
+                    <option value="">เลือก Customer</option>
+                    {(customers ?? []).map((customer) => (
+                      <option key={customer.customerId} value={customer.customerId}>
+                        {customer.customerName} ({customer.customerId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
+                  <input name="orderDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">สถานะ</label>
+                  <select name="status" defaultValue="Pending">
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
+                  <button type="button" onClick={addDraftRow} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+                    เพิ่มรายการ
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {draftItems.map((item, index) => (
+                    <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
+                      <select
+                        value={item.productId}
+                        onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
+                        className="md:col-span-2"
+                      >
+                        <option value="">เลือกสินค้า</option>
+                        {(products ?? []).map((product) => (
+                          <option key={product.productId} value={product.productId}>
+                            {product.productName} ({product.productId})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(event) => handleDraftChange(index, { quantity: Number(event.target.value) })}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={item.unitPrice}
+                        onChange={(event) => handleDraftChange(index, { unitPrice: Number(event.target.value) })}
+                      />
+                      {draftItems.length > 1 && (
+                        <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                          ลบ
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
+                  <span>ยอดรวม (คำนวณก่อนส่ง)</span>
+                  <span className="font-semibold text-slate-800">฿{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetCreateForm();
+                    setCreateModalOpen(false);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ยกเลิก
+                </button>
+                <button type="submit" disabled={isSubmitting} className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                  {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก Order'}
                 </button>
               </div>
-              <div className="space-y-3">
-                {draftItems.map((item, index) => (
-                  <div key={index} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                    <select value={item.productId} onChange={(event) => handleDraftChange(index, { productId: event.target.value })} className="md:col-span-2">
-                      <option value="">เลือกสินค้า</option>
-                      {(products ?? []).map((product) => (
-                        <option key={product.productId} value={product.productId}>
-                          {product.productName} ({product.productId})
-                        </option>
-                      ))}
-                    </select>
-                    <input type="number" min={1} value={item.quantity} onChange={(event) => handleDraftChange(index, { quantity: Number(event.target.value) })} />
-                    <input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(event) => handleDraftChange(index, { unitPrice: Number(event.target.value) })} />
-                    {draftItems.length > 1 && (
-                      <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                        ลบ
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                <span>ยอดรวม (คำนวณก่อนส่ง)</span>
-                <span className="font-semibold text-slate-800">฿{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-            <button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก Order'}
+      <section className="card space-y-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Order ที่ได้รับการยืนยัน</h2>
+          <p className="text-sm text-slate-500">ดึงจาก /orders/confirmed</p>
+        </div>
+        <div className="space-y-3">
+          {(confirmedOrders ?? []).map((order) => (
+            <button
+              key={order.orderId}
+              type="button"
+              onClick={() => setSelectedOrder(order.orderId)}
+              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${selectedOrder === order.orderId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'}`}
+            >
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <p className="font-semibold text-slate-800">{order.orderId}</p>
+                  <p className="text-xs text-slate-500">ลูกค้า: {order.customerId} • สถานะ: {order.status}</p>
+                </div>
+                <span className="text-xs text-slate-400">{format(new Date(order.orderDate), 'dd MMM yyyy')}</span>
+              </div>
             </button>
-          </form>
+          ))}
+          {(confirmedOrders?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มี Order ที่ยืนยัน</p>}
+        </div>
+        {selectedOrder && orderItems && (
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-800">รายการสินค้าใน {selectedOrder}</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-600">
+              {orderItems.map((item) => (
+                <li key={item.orderItemId} className="flex justify-between">
+                  <span>
+                    {item.productId} • {item.quantity} ชิ้น
+                  </span>
+                  <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
-      </div>
+      </section>
 
       {(role === 'SALES' || role === 'ADMIN') && (
         <section className="card space-y-4 p-6">
