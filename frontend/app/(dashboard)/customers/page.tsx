@@ -25,10 +25,10 @@ export default function CustomersPage() {
 
     const formData = new FormData(form);
     const payload = {
-      customerName: formData.get('customerName'),
-      address: formData.get('address'),
-      phone: formData.get('phone'),
-      email: formData.get('email')
+      customerName: requiredName,
+      address: toOptional(formData.get('address')),
+      phone: toOptional(formData.get('phone')),
+      email: toOptional(formData.get('email'))
     };
 
     try {

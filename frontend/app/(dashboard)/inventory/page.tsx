@@ -277,8 +277,19 @@ export default function InventoryPage() {
                   <textarea name="description" rows={3} placeholder="ระบุรายละเอียดสินค้าเพิ่มเติม" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-500">Supplier ID</label>
-                  <input name="supplierId" placeholder="เช่น SUP-001" />
+                  <label className="block text-xs font-medium text-slate-500">Supplier</label>
+                  {suppliers && suppliers.length > 0 ? (
+                    <select name="supplierId" defaultValue="" className="w-full">
+                      <option value="">เลือก Supplier (ไม่บังคับ)</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.supplierId} value={supplier.supplierId}>
+                          {supplier.supplierName} ({supplier.supplierId})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input name="supplierId" placeholder="เช่น SUP-001" />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-slate-500">Image URL</label>
