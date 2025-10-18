@@ -10,7 +10,6 @@ export default function CustomersPage() {
   const { role, token } = useAuth();
   const { data: customers, mutate } = useAuthedSWR<Customer[]>(role ? '/customers' : null, token);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
@@ -103,7 +102,6 @@ export default function CustomersPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}

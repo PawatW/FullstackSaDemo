@@ -98,7 +98,6 @@ export default function OrdersPage() {
       resetCreateForm();
       event.currentTarget.reset();
       setCreateModalOpen(false);
-      setSuccessMessage('สร้าง Order สำเร็จ');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้าง Order ไม่สำเร็จ');
     } finally {
@@ -146,7 +145,6 @@ export default function OrdersPage() {
               type="button"
               onClick={() => {
                 setError(null);
-                setSuccessMessage(null);
                 resetCreateForm();
                 setCreateModalOpen(true);
               }}

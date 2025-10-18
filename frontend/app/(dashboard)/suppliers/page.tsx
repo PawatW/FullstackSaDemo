@@ -10,7 +10,6 @@ export default function SuppliersPage() {
   const { role, token } = useAuth();
   const { data: suppliers, mutate } = useAuthedSWR<Supplier[]>(role ? '/suppliers' : null, token);
   const [error, setError] = useState<string | null>(null);
-  const [successAlert, setSuccessAlert] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
@@ -20,7 +19,7 @@ export default function SuppliersPage() {
     event.preventDefault();
     if (!token) return;
     setError(null);
-    setSuccessAlert(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(event.currentTarget);
     const payload = {
@@ -40,7 +39,7 @@ export default function SuppliersPage() {
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();
-      setSuccessAlert('เพิ่ม Supplier เรียบร้อย');
+      setSuccessMessage('เพิ่ม Supplier เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถเพิ่ม Supplier ได้');
     }
@@ -54,8 +53,8 @@ export default function SuppliersPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
-      {successAlert && (
-        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successAlert}</div>
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
       )}
 
       <section className="card space-y-4 p-6">
@@ -103,7 +102,6 @@ export default function SuppliersPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setSuccessAlert(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}

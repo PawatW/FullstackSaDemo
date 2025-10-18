@@ -106,7 +106,6 @@ export default function InventoryPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}

@@ -172,7 +172,6 @@ export default function RequestsPage() {
               type="button"
               onClick={() => {
                 setError(null);
-                setSuccessMessage(null);
                 resetCreateForm();
                 setCreateModalOpen(true);
               }}
