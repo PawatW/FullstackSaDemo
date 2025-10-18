@@ -107,7 +107,6 @@ export default function InventoryPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}
@@ -251,15 +250,8 @@ export default function InventoryPage() {
                   <textarea name="description" rows={3} placeholder="ระบุรายละเอียดสินค้าเพิ่มเติม" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-500">Supplier</label>
-                  <select name="supplierId" className="w-full">
-                    <option value="">เลือก Supplier</option>
-                    {(suppliers ?? []).map((supplier) => (
-                      <option key={supplier.supplierId} value={supplier.supplierId}>
-                        {supplier.supplierName} ({supplier.supplierId})
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-medium text-slate-500">Supplier ID</label>
+                  <input name="supplierId" placeholder="เช่น SUP-001" />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-slate-500">Image URL</label>
