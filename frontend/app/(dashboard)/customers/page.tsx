@@ -10,6 +10,7 @@ export default function CustomersPage() {
   const { role, token } = useAuth();
   const { data: customers, mutate } = useAuthedSWR<Customer[]>(role ? '/customers' : null, token);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
@@ -102,6 +103,7 @@ export default function CustomersPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
+                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}
@@ -124,6 +126,7 @@ export default function CustomersPage() {
                     type="button"
                     onClick={() => {
                       setCreateModalOpen(false);
+                      setSuccessMessage(null);
                       setFormResetKey((prev) => prev + 1);
                     }}
                     className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
@@ -155,6 +158,7 @@ export default function CustomersPage() {
                       type="button"
                       onClick={() => {
                         setCreateModalOpen(false);
+                        setSuccessMessage(null);
                         setFormResetKey((prev) => prev + 1);
                       }}
                       className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
