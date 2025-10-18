@@ -35,7 +35,7 @@ export default function InventoryPage() {
     const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
-    const formData = new FormData(form);
+    const formData = new FormData(event.currentTarget);
     const productName = String(formData.get('productName') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
     const unit = String(formData.get('unit') ?? '').trim();
