@@ -32,6 +32,7 @@ export default function InventoryPage() {
   const handleCreateProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
     const formData = new FormData(event.currentTarget);
@@ -76,7 +77,7 @@ export default function InventoryPage() {
         body: JSON.stringify(payload),
         token
       });
-      event.currentTarget.reset();
+      form.reset();
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();

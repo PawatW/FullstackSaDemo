@@ -19,10 +19,11 @@ export default function CustomersPage() {
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       customerName: formData.get('customerName'),
       address: formData.get('address'),
@@ -36,7 +37,7 @@ export default function CustomersPage() {
         body: JSON.stringify(payload),
         token
       });
-      event.currentTarget.reset();
+      form.reset();
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();

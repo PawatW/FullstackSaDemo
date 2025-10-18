@@ -52,10 +52,11 @@ export default function RequestsPage() {
   const handleCreateRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const orderId = String(formData.get('orderId'));
     const requestDate = String(formData.get('requestDate'));
     const description = String(formData.get('description') || '');
@@ -87,7 +88,7 @@ export default function RequestsPage() {
         body: JSON.stringify(payload),
         token
       });
-      event.currentTarget.reset();
+      form.reset();
       resetCreateForm();
       setCreateModalOpen(false);
       mutatePending();

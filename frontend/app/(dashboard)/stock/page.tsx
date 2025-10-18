@@ -25,10 +25,11 @@ export default function StockPage() {
   const handleStockIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setMessage(null);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       productId: formData.get('productId'),
       quantity: Number(formData.get('quantity') || 0),
@@ -43,7 +44,7 @@ export default function StockPage() {
         token
       });
       setMessage('บันทึกสินค้าเข้าเรียบร้อย');
-      event.currentTarget.reset();
+      form.reset();
       setStockInModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();

@@ -18,9 +18,10 @@ export default function StaffAdminPage() {
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       staffName: formData.get('staffName'),
       email: formData.get('email'),
@@ -36,7 +37,7 @@ export default function StaffAdminPage() {
         body: JSON.stringify(payload),
         token
       });
-      event.currentTarget.reset();
+      form.reset();
       mutate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถสร้าง Staff ได้');
