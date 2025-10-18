@@ -56,11 +56,12 @@ export default function OrdersPage() {
   const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
     setSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
     const customerId = String(formData.get('customerId'));
     const orderDate = String(formData.get('orderDate'));
     const status = String(formData.get('status') || 'Pending');
@@ -96,7 +97,7 @@ export default function OrdersPage() {
       mutateConfirmed();
       mutateReady();
       resetCreateForm();
-      event.currentTarget.reset();
+      form.reset();
       setCreateModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้าง Order ไม่สำเร็จ');

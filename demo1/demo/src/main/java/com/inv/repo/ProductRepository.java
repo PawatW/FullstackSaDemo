@@ -47,13 +47,13 @@ public class ProductRepository {
                 "VALUES (?,?,?,?,?,?,?,?)";
         jdbcTemplate.update(
                 sql,
-                p.getProductId(), // เพิ่ม productId เข้าไป
+                p.getProductId(),
                 p.getProductName(),
                 p.getDescription(),
                 p.getUnit(),
                 p.getPricePerUnit(),
                 p.getSupplierId(),
-                0,
+                p.getQuantity(),
                 p.getImageUrl()
         );
     }

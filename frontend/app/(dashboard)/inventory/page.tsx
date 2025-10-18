@@ -32,17 +32,43 @@ export default function InventoryPage() {
   const handleCreateProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token) return;
+    const form = event.currentTarget;
     setError(null);
     setSuccessMessage(null);
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
+    const productName = String(formData.get('productName') ?? '').trim();
+    const description = String(formData.get('description') ?? '').trim();
+    const unit = String(formData.get('unit') ?? '').trim();
+    const supplierId = String(formData.get('supplierId') ?? '').trim();
+    const imageUrl = String(formData.get('imageUrl') ?? '').trim();
+
+    const quantityRaw = formData.get('quantity');
+    const quantity = quantityRaw === null || quantityRaw === '' ? 0 : Number(quantityRaw);
+    if (Number.isNaN(quantity) || quantity < 0 || !Number.isInteger(quantity)) {
+      setError('จำนวนสินค้าไม่ถูกต้อง');
+      return;
+    }
+
+    const priceRaw = formData.get('pricePerUnit');
+    const pricePerUnit = priceRaw === null || priceRaw === '' ? undefined : Number(priceRaw);
+    if (pricePerUnit !== undefined && (Number.isNaN(pricePerUnit) || pricePerUnit <= 0)) {
+      setError('ราคา/หน่วยไม่ถูกต้อง');
+      return;
+    }
+
+    if (!productName) {
+      setError('กรุณากรอกชื่อสินค้า');
+      return;
+    }
+
     const payload = {
-      productName: formData.get('productName'),
-      description: formData.get('description'),
-      unit: formData.get('unit'),
-      pricePerUnit: Number(formData.get('pricePerUnit')) || 0,
-      supplierId: formData.get('supplierId'),
-      quantity: Number(formData.get('quantity')) || 0,
-      imageUrl: formData.get('imageUrl')
+      productName,
+      description: description || undefined,
+      unit: unit || undefined,
+      pricePerUnit,
+      supplierId: supplierId || undefined,
+      quantity,
+      imageUrl: imageUrl || undefined
     };
 
     try {
@@ -51,7 +77,7 @@ export default function InventoryPage() {
         body: JSON.stringify(payload),
         token
       });
-      event.currentTarget.reset();
+      form.reset();
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       mutate();
@@ -107,6 +133,7 @@ export default function InventoryPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
+                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}
@@ -250,8 +277,19 @@ export default function InventoryPage() {
                   <textarea name="description" rows={3} placeholder="ระบุรายละเอียดสินค้าเพิ่มเติม" />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-slate-500">Supplier ID</label>
-                  <input name="supplierId" placeholder="เช่น SUP-001" />
+                  <label className="block text-xs font-medium text-slate-500">Supplier</label>
+                  {suppliers && suppliers.length > 0 ? (
+                    <select name="supplierId" defaultValue="" className="w-full">
+                      <option value="">เลือก Supplier (ไม่บังคับ)</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.supplierId} value={supplier.supplierId}>
+                          {supplier.supplierName} ({supplier.supplierId})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input name="supplierId" placeholder="เช่น SUP-001" />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-slate-500">Image URL</label>
