@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../../../components/AuthContext';
-import { apiFetch } from '../../../../lib/api';
+import { AddStaffForm } from '../../../../components/staff/AddStaffForm';
 import { useAuthedSWR } from '../../../../lib/swr';
 import type { Staff } from '../../../../lib/types';
 
@@ -15,37 +15,6 @@ export default function StaffAdminPage() {
   if (role !== 'ADMIN') {
     return <p className="text-sm text-slate-500">ต้องเป็นผู้ดูแลระบบเท่านั้น</p>;
   }
-
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!token) return;
-    const form = event.currentTarget;
-    setError(null);
-    setSuccessMessage(null);
-
-    const formData = new FormData(form);
-    const payload = {
-      staffName: formData.get('staffName'),
-      email: formData.get('email'),
-      phone: formData.get('phone'),
-      role: formData.get('role'),
-      password: formData.get('password'),
-      active: true
-    };
-
-    try {
-      await apiFetch<Staff>('/staff', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        token
-      });
-      form.reset();
-      mutate();
-      setSuccessMessage('สร้างพนักงานเรียบร้อย');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'ไม่สามารถสร้าง Staff ได้');
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -87,46 +56,20 @@ export default function StaffAdminPage() {
         </div>
       </section>
 
-      <form onSubmit={handleCreate} className="card space-y-4 p-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">สร้างพนักงานใหม่</h2>
-          <p className="text-sm text-slate-500">POST /staff (เฉพาะ Admin)</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-500">ชื่อ-สกุล</label>
-            <input name="staffName" required />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-500">อีเมล</label>
-            <input name="email" type="email" required />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-500">เบอร์โทร</label>
-            <input name="phone" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-500">บทบาท</label>
-            <select name="role" required defaultValue="TECHNICIAN">
-              <option value="TECHNICIAN">Technician</option>
-              <option value="FOREMAN">Foreman</option>
-              <option value="WAREHOUSE">Warehouse</option>
-              <option value="SALES">Sales</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-medium text-slate-500">รหัสผ่านเริ่มต้น</label>
-            <input name="password" type="password" required minLength={6} />
-          </div>
-        </div>
-        <button
-          type="submit"
-          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
-        >
-          บันทึกพนักงาน
-        </button>
-      </form>
+      <AddStaffForm
+        onStart={() => {
+          setError(null);
+          setSuccessMessage(null);
+        }}
+        onSuccess={() => {
+          mutate();
+          setSuccessMessage('สร้างพนักงานเรียบร้อย');
+        }}
+        onError={(message) => {
+          setError(message);
+          setSuccessMessage(null);
+        }}
+      />
     </div>
   );
 }

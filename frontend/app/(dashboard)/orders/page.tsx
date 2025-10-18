@@ -10,7 +10,6 @@ import type { Customer, Order, OrderItem, Product } from '../../../lib/types';
 interface DraftItem {
   productId: string;
   quantity: number;
-  unitPrice: number;
 }
 
 export default function OrdersPage() {
@@ -18,7 +17,7 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1, unitPrice: 0 }]);
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1 }]);
   const [isSubmitting, setSubmitting] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
@@ -36,19 +35,37 @@ export default function OrdersPage() {
 
   const canCreate = role === 'SALES' || role === 'ADMIN';
 
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    (products ?? []).forEach((product) => {
+      map.set(product.productId, product);
+    });
+    return map;
+  }, [products]);
+
   const totalAmount = useMemo(() => {
-    return draftItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
-  }, [draftItems]);
+    return draftItems.reduce((sum, item) => {
+      const product = productMap.get(item.productId);
+      if (!product || product.pricePerUnit === undefined || product.pricePerUnit === null) {
+        return sum;
+      }
+      const price = Number(product.pricePerUnit);
+      if (Number.isNaN(price)) {
+        return sum;
+      }
+      return sum + (item.quantity || 0) * price;
+    }, 0);
+  }, [draftItems, productMap]);
 
   const handleDraftChange = (index: number, patch: Partial<DraftItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
   };
 
-  const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1, unitPrice: 0 }]);
+  const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1 }]);
   const removeDraftRow = (index: number) => setDraftItems((prev) => prev.filter((_, idx) => idx !== index));
 
   const resetCreateForm = () => {
-    setDraftItems([{ productId: '', quantity: 1, unitPrice: 0 }]);
+    setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
     setSubmitting(false);
   };
@@ -68,21 +85,41 @@ export default function OrdersPage() {
 
     const preparedItems = draftItems
       .filter((item) => item.productId && item.quantity > 0)
-      .map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        lineTotal: item.quantity * item.unitPrice,
-        fulfilledQty: 0,
-        remainingQty: item.quantity
-      }));
+      .map((item) => {
+        const product = productMap.get(item.productId);
+        const priceValue = product?.pricePerUnit;
+        const numericPrice = priceValue !== undefined && priceValue !== null ? Number(priceValue) : NaN;
+
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: numericPrice,
+          fulfilledQty: 0,
+          remainingQty: item.quantity
+        };
+      });
+
+    if (preparedItems.length === 0) {
+      setError('กรุณาเลือกรายการสินค้าอย่างน้อย 1 รายการ');
+      setSubmitting(false);
+      return;
+    }
+
+    const hasInvalidPrice = preparedItems.some((item) => !Number.isFinite(item.unitPrice) || item.unitPrice <= 0);
+    if (hasInvalidPrice) {
+      setError('พบสินค้าที่ไม่ได้ตั้งราคา กรุณาตรวจสอบรายการสินค้าอีกครั้ง');
+      setSubmitting(false);
+      return;
+    }
+
+    const payloadTotal = preparedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
     const payload = {
       order: {
         orderDate,
         customerId,
         status,
-        totalAmount
+        totalAmount: payloadTotal
       },
       items: preparedItems
     };
@@ -99,6 +136,7 @@ export default function OrdersPage() {
       resetCreateForm();
       form.reset();
       setCreateModalOpen(false);
+      setSuccessMessage('สร้าง Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้าง Order ไม่สำเร็จ');
     } finally {
@@ -158,25 +196,27 @@ export default function OrdersPage() {
       )}
 
       {canCreate && isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
-          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
-                <p className="text-sm text-slate-500">กรอกข้อมูล Order พร้อมรายการสินค้าให้ครบถ้วน</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  resetCreateForm();
-                  setCreateModalOpen(false);
-                }}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-              >
-                ปิด
-              </button>
-            </div>
-            <form key={formResetKey} onSubmit={handleCreateOrder} className="space-y-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
+                    <p className="text-sm text-slate-500">กรอกข้อมูล Order พร้อมรายการสินค้าให้ครบถ้วน</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetCreateForm();
+                      setCreateModalOpen(false);
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={formResetKey} onSubmit={handleCreateOrder} className="mt-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-medium text-slate-500">ลูกค้า</label>
@@ -210,40 +250,69 @@ export default function OrdersPage() {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {draftItems.map((item, index) => (
-                    <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                      <select
-                        value={item.productId}
-                        onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
-                        className="md:col-span-2"
+                  {draftItems.map((item, index) => {
+                    const product = productMap.get(item.productId);
+                    const resolvedPrice = Number(product?.pricePerUnit);
+                    const hasPrice = Number.isFinite(resolvedPrice) && resolvedPrice > 0;
+                    const lineTotal = hasPrice ? (item.quantity || 0) * resolvedPrice : 0;
+                    return (
+                      <div
+                        key={`${formResetKey}-${index}`}
+                        className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-5"
                       >
-                        <option value="">เลือกสินค้า</option>
-                        {(products ?? []).map((product) => (
-                          <option key={product.productId} value={product.productId}>
-                            {product.productName} ({product.productId})
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(event) => handleDraftChange(index, { quantity: Number(event.target.value) })}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={item.unitPrice}
-                        onChange={(event) => handleDraftChange(index, { unitPrice: Number(event.target.value) })}
-                      />
-                      {draftItems.length > 1 && (
-                        <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                          ลบ
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                        <select
+                          value={item.productId}
+                          onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
+                          className="md:col-span-2"
+                        >
+                          <option value="">เลือกสินค้า</option>
+                          {(products ?? []).map((productOption) => (
+                            <option key={productOption.productId} value={productOption.productId}>
+                              {productOption.productName} ({productOption.productId})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(event) => {
+                            const nextQuantity = Math.max(1, Number(event.target.value) || 0);
+                            handleDraftChange(index, { quantity: nextQuantity });
+                          }}
+                        />
+                        <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          <span>ราคา/หน่วย</span>
+                          <span className="text-sm font-semibold text-slate-800">
+                            {hasPrice
+                              ? `฿${resolvedPrice.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}`
+                              : 'ยังไม่ตั้งราคา'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          <span>ยอดรวม</span>
+                          <span className="text-sm font-semibold text-slate-800">
+                            {hasPrice
+                              ? `฿${lineTotal.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}`
+                              : '—'}
+                          </span>
+                        </div>
+                        {draftItems.length > 1 && (
+                          <div className="flex items-center">
+                            <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                              ลบ
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
                   <span>ยอดรวม (คำนวณก่อนส่ง)</span>
@@ -269,7 +338,9 @@ export default function OrdersPage() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  )}
 
       <section className="card space-y-4 p-6">
         <div>
