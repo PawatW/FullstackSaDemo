@@ -10,7 +10,6 @@ export default function SuppliersPage() {
   const { role, token } = useAuth();
   const { data: suppliers, mutate } = useAuthedSWR<Supplier[]>(role ? '/suppliers' : null, token);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
@@ -103,7 +102,6 @@ export default function SuppliersPage() {
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setSuccessMessage(null);
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}
