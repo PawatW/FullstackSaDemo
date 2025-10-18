@@ -236,25 +236,27 @@ export default function InventoryPage() {
       )}
 
       {canManage && isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
-          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">เพิ่มสินค้าใหม่</h2>
-                <p className="text-sm text-slate-500">กรอกข้อมูลสินค้าเพื่อเรียกใช้งาน POST /products</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreateModalOpen(false);
-                  setFormResetKey((prev) => prev + 1);
-                }}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-              >
-                ปิด
-              </button>
-            </div>
-            <form key={formResetKey} onSubmit={handleCreateProduct} className="space-y-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">เพิ่มสินค้าใหม่</h2>
+                    <p className="text-sm text-slate-500">กรอกข้อมูลสินค้าเพื่อเรียกใช้งาน POST /products</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setFormResetKey((prev) => prev + 1);
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={formResetKey} onSubmit={handleCreateProduct} className="mt-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-slate-500">ชื่อสินค้า</label>
@@ -296,22 +298,23 @@ export default function InventoryPage() {
                   <input name="imageUrl" placeholder="https://..." />
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateModalOpen(false);
-                    setFormResetKey((prev) => prev + 1);
-                  }}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
-                >
-                  ยกเลิก
-                </button>
-                <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
-                  บันทึกสินค้า
-                </button>
-              </div>
-            </form>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setFormResetKey((prev) => prev + 1);
+                    }}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                    บันทึกสินค้า
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

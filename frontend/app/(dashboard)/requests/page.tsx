@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
@@ -20,6 +20,8 @@ export default function RequestsPage() {
   const [draftItems, setDraftItems] = useState<DraftRequestItem[]>([{ productId: '', quantity: 1 }]);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
+  const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
@@ -36,6 +38,11 @@ export default function RequestsPage() {
   const canFulfill = role === 'WAREHOUSE' || role === 'ADMIN';
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
+
+  useEffect(() => {
+    setFulfillQuantities({});
+    setFulfilling({});
+  }, [selectedRequestId]);
 
   const updateDraftItem = (index: number, patch: Partial<DraftRequestItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
@@ -117,9 +124,14 @@ export default function RequestsPage() {
   };
 
   const handleFulfill = async (requestItemId: string, fulfillQty: number) => {
-    if (!token || fulfillQty <= 0) return;
+    if (!token) return;
+    if (fulfillQty <= 0) {
+      setError('จำนวนที่เบิกต้องมากกว่า 0');
+      return;
+    }
     setError(null);
     setSuccessMessage(null);
+    setFulfilling((prev) => ({ ...prev, [requestItemId]: true }));
     try {
       await apiFetch<void>('/stock/fulfill', {
         method: 'POST',
@@ -128,9 +140,16 @@ export default function RequestsPage() {
       });
       mutateApproved();
       mutateReady();
+      setFulfillQuantities((prev) => {
+        const next = { ...prev };
+        delete next[requestItemId];
+        return next;
+      });
       setSuccessMessage('บันทึกการเบิกเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถเบิกสินค้าได้');
+    } finally {
+      setFulfilling((prev) => ({ ...prev, [requestItemId]: false }));
     }
   };
 
@@ -185,25 +204,27 @@ export default function RequestsPage() {
       )}
 
       {canCreate && isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
-          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">สร้างคำขอเบิกวัสดุ</h2>
-                <p className="text-sm text-slate-500">กรอกข้อมูลคำขอและรายการสินค้าให้ครบถ้วนก่อนยืนยัน</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  resetCreateForm();
-                  setCreateModalOpen(false);
-                }}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-              >
-                ปิด
-              </button>
-            </div>
-            <form key={formResetKey} onSubmit={handleCreateRequest} className="space-y-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">สร้างคำขอเบิกวัสดุ</h2>
+                    <p className="text-sm text-slate-500">กรอกข้อมูลคำขอและรายการสินค้าให้ครบถ้วนก่อนยืนยัน</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetCreateForm();
+                      setCreateModalOpen(false);
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={formResetKey} onSubmit={handleCreateRequest} className="mt-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
@@ -288,7 +309,9 @@ export default function RequestsPage() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  )}
 
       {canApprove && (
         <section className="card space-y-4 p-6">
@@ -344,25 +367,55 @@ export default function RequestsPage() {
                 </div>
                 {selectedRequestId === request.requestId && requestItems && (
                   <ul className="mt-3 space-y-3 text-sm text-slate-600">
-                    {requestItems.map((item) => (
-                      <li key={item.requestItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
-                        <div>
-                          <p className="font-medium text-slate-700">{item.productId}</p>
-                          <p className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {Array.from(new Set([1, item.remainingQty])).map((qty, idx) => (
+                    {requestItems.map((item) => {
+                      const maxQty = item.remainingQty;
+                      const storedQty = fulfillQuantities[item.requestItemId];
+                      const plannedQty = storedQty !== undefined ? storedQty : maxQty > 0 ? 1 : 0;
+                      const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
+                      const isProcessing = fulfilling[item.requestItemId];
+                      const disableActions = maxQty <= 0 || isProcessing;
+                      const buttonLabel = maxQty <= 0 ? 'เบิกครบแล้ว' : isProcessing ? 'กำลังบันทึก...' : 'บันทึกการเบิก';
+
+                      return (
+                        <li key={item.requestItemId} className="flex flex-col gap-3 rounded-xl bg-slate-50 px-3 py-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="font-medium text-slate-700">{item.productId}</p>
+                            <p className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</p>
+                          </div>
+                          <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
+                            <input
+                              type="number"
+                              min={maxQty > 0 ? 1 : 0}
+                              max={maxQty > 0 ? maxQty : undefined}
+                              value={maxQty > 0 ? quantityForInput : 0}
+                              onChange={(event) => {
+                                if (maxQty <= 0) {
+                                  return;
+                                }
+                                const nextValue = Number(event.target.value);
+                                const sanitized = Number.isFinite(nextValue)
+                                  ? Math.min(maxQty, Math.max(1, Math.trunc(nextValue)))
+                                  : 1;
+                                setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: sanitized }));
+                              }}
+                              disabled={maxQty <= 0 || isProcessing}
+                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-28"
+                            />
                             <button
-                              key={`${item.requestItemId}-${idx}`}
-                              onClick={() => handleFulfill(item.requestItemId, qty)}
-                              className="rounded-lg bg-primary-600 px-3 py-1 text-xs font-semibold text-white"
+                              type="button"
+                              onClick={() => {
+                                const quantityToFulfill = maxQty > 0 ? Math.max(1, Math.min(quantityForInput, maxQty)) : 0;
+                                handleFulfill(item.requestItemId, quantityToFulfill);
+                              }}
+                              disabled={disableActions}
+                              className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
-                              เบิก {qty}
+                              {buttonLabel}
                             </button>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

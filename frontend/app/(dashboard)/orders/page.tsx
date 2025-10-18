@@ -96,7 +96,7 @@ export default function OrdersPage() {
         orderDate,
         customerId,
         status,
-        totalAmount
+        totalAmount: computedTotal
       },
       items: preparedItems
     };
@@ -113,6 +113,7 @@ export default function OrdersPage() {
       resetCreateForm();
       form.reset();
       setCreateModalOpen(false);
+      setSuccessMessage('สร้าง Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'สร้าง Order ไม่สำเร็จ');
     } finally {
@@ -172,25 +173,27 @@ export default function OrdersPage() {
       )}
 
       {canCreate && isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
-          <div className="w-full max-w-4xl space-y-6 rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
-                <p className="text-sm text-slate-500">กรอกข้อมูล Order พร้อมรายการสินค้าให้ครบถ้วน</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  resetCreateForm();
-                  setCreateModalOpen(false);
-                }}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-              >
-                ปิด
-              </button>
-            </div>
-            <form key={formResetKey} onSubmit={handleCreateOrder} className="space-y-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">สร้าง Order ใหม่</h2>
+                    <p className="text-sm text-slate-500">กรอกข้อมูล Order พร้อมรายการสินค้าให้ครบถ้วน</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetCreateForm();
+                      setCreateModalOpen(false);
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={formResetKey} onSubmit={handleCreateOrder} className="mt-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-medium text-slate-500">ลูกค้า</label>
@@ -301,7 +304,9 @@ export default function OrdersPage() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  )}
 
       <section className="card space-y-4 p-6">
         <div>
