@@ -25,28 +25,39 @@ public class CustomerService {
     }
 
     public Customer createCustomer(Customer customer) {
-        // 4. Validation
-        if (customer.getCustomerName() == null || customer.getCustomerName().trim().isEmpty()) {
+        String name = trimToNull(customer.getCustomerName());
+        if (name == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "กรุณาระบุชื่อลูกค้า (Customer name is required)");
         }
 
-        if (customer.getPhone() != null && !customer.getPhone().trim().isEmpty()) {
-            if (customerRepository.findByPhone(customer.getPhone()) != null) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "เบอร์โทรศัพท์นี้มีในระบบแล้ว (Phone number already exists)");
-            }
+        String address = trimToNull(customer.getAddress());
+        String phone = trimToNull(customer.getPhone());
+        String email = trimToNull(customer.getEmail());
+
+        if (phone != null && customerRepository.findByPhone(phone) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "เบอร์โทรศัพท์นี้มีในระบบแล้ว (Phone number already exists)");
         }
 
-        if (customer.getEmail() != null && !customer.getEmail().trim().isEmpty()) {
-            if (customerRepository.findByEmail(customer.getEmail()) != null) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "อีเมลนี้มีในระบบแล้ว (Email already exists)");
-            }
+        if (email != null && customerRepository.findByEmail(email) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "อีเมลนี้มีในระบบแล้ว (Email already exists)");
         }
 
-        // เพิ่ม: สร้าง ID ที่นี่
         String customerId = "CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         customer.setCustomerId(customerId);
+        customer.setCustomerName(name);
+        customer.setAddress(address);
+        customer.setPhone(phone);
+        customer.setEmail(email);
 
         customerRepository.save(customer);
         return customer;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

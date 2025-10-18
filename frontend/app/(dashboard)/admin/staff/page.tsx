@@ -10,6 +10,7 @@ export default function StaffAdminPage() {
   const { role, token } = useAuth();
   const { data: staff, mutate } = useAuthedSWR<Staff[]>(role === 'ADMIN' ? '/staff' : null, token);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (role !== 'ADMIN') {
     return <p className="text-sm text-slate-500">ต้องเป็นผู้ดูแลระบบเท่านั้น</p>;
@@ -20,6 +21,7 @@ export default function StaffAdminPage() {
     if (!token) return;
     const form = event.currentTarget;
     setError(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(form);
     const payload = {
@@ -39,6 +41,7 @@ export default function StaffAdminPage() {
       });
       form.reset();
       mutate();
+      setSuccessMessage('สร้างพนักงานเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถสร้าง Staff ได้');
     }
@@ -52,6 +55,9 @@ export default function StaffAdminPage() {
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
+      )}
 
       <section className="card space-y-4 p-6">
         <h2 className="text-lg font-semibold text-slate-900">พนักงานทั้งหมด</h2>
@@ -114,7 +120,10 @@ export default function StaffAdminPage() {
             <input name="password" type="password" required minLength={6} />
           </div>
         </div>
-        <button type="submit" className="w-full md:w-auto">
+        <button
+          type="submit"
+          className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+        >
           บันทึกพนักงาน
         </button>
       </form>

@@ -32,7 +32,7 @@ export default function CustomersPage() {
     }
 
     const payload = {
-      customerName: customerName, // Use the extracted value
+      customerName: requiredName,
       address: toOptional(formData.get('address')),
       phone: toOptional(formData.get('phone')),
       email: toOptional(formData.get('email'))
