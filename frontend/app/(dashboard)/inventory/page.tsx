@@ -4,11 +4,10 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useAuth } from '../../../components/AuthContext';
 import { useAuthedSWR } from '../../../lib/swr';
 import { apiFetch } from '../../../lib/api';
-import type { Product } from '../../../lib/types';
+import type { Product, Supplier } from '../../../lib/types';
 
 export default function InventoryPage() {
   const { token, role } = useAuth();
-  const { data: products, mutate, isLoading } = useAuthedSWR<Product[]>('/products', token, { refreshInterval: 30000 });
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -17,6 +16,8 @@ export default function InventoryPage() {
   const [formResetKey, setFormResetKey] = useState(0);
 
   const canManage = role === 'WAREHOUSE' || role === 'ADMIN';
+  const { data: suppliers } = useAuthedSWR<Supplier[]>(canManage ? '/suppliers' : null, token);
+  const { data: products, mutate, isLoading } = useAuthedSWR<Product[]>('/products', token, { refreshInterval: 30000 });
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
