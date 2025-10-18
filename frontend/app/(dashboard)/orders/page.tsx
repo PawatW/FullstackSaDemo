@@ -10,7 +10,6 @@ import type { Customer, Order, OrderItem, Product } from '../../../lib/types';
 interface DraftItem {
   productId: string;
   quantity: number;
-  unitPrice: number;
 }
 
 export default function OrdersPage() {
@@ -18,7 +17,7 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1, unitPrice: 0 }]);
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1 }]);
   const [isSubmitting, setSubmitting] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
@@ -36,19 +35,30 @@ export default function OrdersPage() {
 
   const canCreate = role === 'SALES' || role === 'ADMIN';
 
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    (products ?? []).forEach((product) => {
+      map.set(product.productId, product);
+    });
+    return map;
+  }, [products]);
+
   const totalAmount = useMemo(() => {
-    return draftItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
-  }, [draftItems]);
+    return draftItems.reduce((sum, item) => {
+      const price = productMap.get(item.productId)?.pricePerUnit ?? 0;
+      return sum + (item.quantity || 0) * price;
+    }, 0);
+  }, [draftItems, productMap]);
 
   const handleDraftChange = (index: number, patch: Partial<DraftItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
   };
 
-  const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1, unitPrice: 0 }]);
+  const addDraftRow = () => setDraftItems((prev) => [...prev, { productId: '', quantity: 1 }]);
   const removeDraftRow = (index: number) => setDraftItems((prev) => prev.filter((_, idx) => idx !== index));
 
   const resetCreateForm = () => {
-    setDraftItems([{ productId: '', quantity: 1, unitPrice: 0 }]);
+    setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
     setSubmitting(false);
   };
@@ -68,14 +78,18 @@ export default function OrdersPage() {
 
     const preparedItems = draftItems
       .filter((item) => item.productId && item.quantity > 0)
-      .map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        lineTotal: item.quantity * item.unitPrice,
-        fulfilledQty: 0,
-        remainingQty: item.quantity
-      }));
+      .map((item) => {
+        const product = productMap.get(item.productId);
+        const unitPrice = product?.pricePerUnit ?? 0;
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          lineTotal: item.quantity * unitPrice,
+          fulfilledQty: 0,
+          remainingQty: item.quantity
+        };
+      });
 
     const payload = {
       order: {
@@ -210,40 +224,58 @@ export default function OrdersPage() {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {draftItems.map((item, index) => (
-                    <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                      <select
-                        value={item.productId}
-                        onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
-                        className="md:col-span-2"
+                  {draftItems.map((item, index) => {
+                    const product = productMap.get(item.productId);
+                    const unitPrice = product?.pricePerUnit ?? 0;
+                    const lineTotal = (item.quantity || 0) * unitPrice;
+                    return (
+                      <div
+                        key={`${formResetKey}-${index}`}
+                        className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-5"
                       >
-                        <option value="">เลือกสินค้า</option>
-                        {(products ?? []).map((product) => (
-                          <option key={product.productId} value={product.productId}>
-                            {product.productName} ({product.productId})
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(event) => handleDraftChange(index, { quantity: Number(event.target.value) })}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={item.unitPrice}
-                        onChange={(event) => handleDraftChange(index, { unitPrice: Number(event.target.value) })}
-                      />
-                      {draftItems.length > 1 && (
-                        <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                          ลบ
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                        <select
+                          value={item.productId}
+                          onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
+                          className="md:col-span-2"
+                        >
+                          <option value="">เลือกสินค้า</option>
+                          {(products ?? []).map((productOption) => (
+                            <option key={productOption.productId} value={productOption.productId}>
+                              {productOption.productName} ({productOption.productId})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(event) => {
+                            const nextQuantity = Math.max(1, Number(event.target.value) || 0);
+                            handleDraftChange(index, { quantity: nextQuantity });
+                          }}
+                        />
+                        <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          <span>ราคา/หน่วย</span>
+                          <span className="text-sm font-semibold text-slate-800">
+                            ฿{unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex flex-col justify-center rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          <span>ยอดรวม</span>
+                          <span className="text-sm font-semibold text-slate-800">
+                            ฿{lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        {draftItems.length > 1 && (
+                          <div className="flex items-center">
+                            <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                              ลบ
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
                   <span>ยอดรวม (คำนวณก่อนส่ง)</span>

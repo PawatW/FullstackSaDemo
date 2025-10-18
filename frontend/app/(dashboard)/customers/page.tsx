@@ -6,6 +6,12 @@ import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
 import type { Customer } from '../../../lib/types';
 
+const toOptional = (value: FormDataEntryValue | null): string | null => {
+  const raw = typeof value === 'string' ? value : value ? String(value) : '';
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+};
+
 export default function CustomersPage() {
   const { role, token } = useAuth();
   const { data: customers, mutate } = useAuthedSWR<Customer[]>(role ? '/customers' : null, token);
@@ -24,15 +30,15 @@ export default function CustomersPage() {
     setSuccessMessage(null);
 
     const formData = new FormData(form);
-    const customerName = String(formData.get('customerName') ?? '').trim(); // FIX: extract name and trim it
+    const customerName = String(formData.get('customerName') ?? '').trim();
 
-    if (!customerName) { // FIX: check if name is empty
+    if (!customerName) {
       setError('กรุณากรอกชื่อลูกค้า');
       return;
     }
 
     const payload = {
-      customerName: requiredName,
+      customerName,
       address: toOptional(formData.get('address')),
       phone: toOptional(formData.get('phone')),
       email: toOptional(formData.get('email'))
