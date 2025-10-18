@@ -257,64 +257,63 @@ export default function InventoryPage() {
                   </button>
                 </div>
                 <form key={formResetKey} onSubmit={handleCreateProduct} className="mt-6 space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">ชื่อสินค้า</label>
-                      <input name="productName" required placeholder="เช่น สายไฟ 2x2.5" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">จำนวนเริ่มต้น</label>
-                      <input name="quantity" type="number" min="0" defaultValue={0} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">หน่วย</label>
-                      <input name="unit" placeholder="ม้วน / ชิ้น / กล่อง" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">ราคา/หน่วย</label>
-                      <input name="pricePerUnit" type="number" min="0" step="0.01" />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-500">คำอธิบาย</label>
-                      <textarea name="description" rows={3} placeholder="ระบุรายละเอียดสินค้าเพิ่มเติม" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">Supplier</label>
-                      {suppliers && suppliers.length > 0 ? (
-                        <select name="supplierId" defaultValue="" className="w-full">
-                          <option value="">เลือก Supplier (ไม่บังคับ)</option>
-                          {suppliers.map((supplier) => (
-                            <option key={supplier.supplierId} value={supplier.supplierId}>
-                              {supplier.supplierName} ({supplier.supplierId})
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input name="supplierId" placeholder="เช่น SUP-001" />
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs font-medium text-slate-500">Image URL</label>
-                      <input name="imageUrl" placeholder="https://..." />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreateModalOpen(false);
-                        setFormResetKey((prev) => prev + 1);
-                      }}
-                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
-                      บันทึกสินค้า
-                    </button>
-                  </div>
-                </form>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">ชื่อสินค้า</label>
+                  <input name="productName" required placeholder="เช่น สายไฟ 2x2.5" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">จำนวนเริ่มต้น</label>
+                  <input name="quantity" type="number" min="0" defaultValue={0} />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">หน่วย</label>
+                  <input name="unit" placeholder="ม้วน / ชิ้น / กล่อง" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">ราคา/หน่วย</label>
+                  <input name="pricePerUnit" type="number" min="0" step="0.01" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500">คำอธิบาย</label>
+                  <textarea name="description" rows={3} placeholder="ระบุรายละเอียดสินค้าเพิ่มเติม" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">Supplier</label>
+                  {suppliers && suppliers.length > 0 ? (
+                    <select name="supplierId" defaultValue="" className="w-full">
+                      <option value="">เลือก Supplier (ไม่บังคับ)</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.supplierId} value={supplier.supplierId}>
+                          {supplier.supplierName} ({supplier.supplierId})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input name="supplierId" placeholder="เช่น SUP-001" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-500">Image URL</label>
+                  <input name="imageUrl" placeholder="https://..." />
+                </div>
+              </div>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setFormResetKey((prev) => prev + 1);
+                    }}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                    บันทึกสินค้า
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
