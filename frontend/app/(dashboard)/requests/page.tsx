@@ -32,6 +32,7 @@ export default function RequestsPage() {
   );
   const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' || role === 'ADMIN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
   const { data: approvedRequests, mutate: mutateApproved } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/approved-requests' : null, token, { refreshInterval: 15000 });
+  const { data: allRequests } = useAuthedSWR<Request[]>('/requests', token, { refreshInterval: 30000 });
   const canClose = role === 'TECHNICIAN' || role === 'ADMIN';
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
@@ -43,6 +44,16 @@ export default function RequestsPage() {
   const canFulfill = role === 'WAREHOUSE' || role === 'ADMIN';
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
+
+  const orderItemByProductId = useMemo(() => {
+    const map = new Map<string, OrderItem>();
+    (selectedOrderItems ?? []).forEach((item) => {
+      if (!map.has(item.productId)) {
+        map.set(item.productId, item);
+      }
+    });
+    return map;
+  }, [selectedOrderItems]);
 
   useEffect(() => {
     setFulfillQuantities({});
@@ -95,6 +106,33 @@ export default function RequestsPage() {
     });
   }, [allowedProductIds]);
 
+  useEffect(() => {
+    setDraftItems((prev) => {
+      let mutated = false;
+      const next = prev.map((item) => {
+        if (!item.productId) {
+          return item;
+        }
+        const orderItem = orderItemByProductId.get(item.productId);
+        if (!orderItem) {
+          if (item.quantity !== 0) {
+            mutated = true;
+            return { ...item, quantity: 0 };
+          }
+          return item;
+        }
+        const available = orderItem.remainingQty;
+        const safeQuantity = available <= 0 ? 0 : Math.min(available, Math.max(1, item.quantity));
+        if (safeQuantity !== item.quantity) {
+          mutated = true;
+          return { ...item, quantity: safeQuantity };
+        }
+        return item;
+      });
+      return mutated ? next : prev;
+    });
+  }, [orderItemByProductId]);
+
   const handleOrderSelection = (orderId: string) => {
     setSelectedOrderId(orderId);
     setDraftItems([{ productId: '', quantity: 1 }]);
@@ -132,6 +170,20 @@ export default function RequestsPage() {
     if (preparedItems.length === 0) {
       setError('กรุณาเลือกรายการสินค้าที่เกี่ยวข้องกับ Order');
       return;
+    }
+
+    const requestedByProduct = new Map<string, number>();
+    for (const item of preparedItems) {
+      const orderItem = orderItemByProductId.get(item.productId);
+      const available = orderItem?.remainingQty ?? 0;
+      const nextRequested = (requestedByProduct.get(item.productId) ?? 0) + item.quantity;
+      if (nextRequested > available) {
+        const productLabel = products?.find((product) => product.productId === item.productId)?.productName;
+        const nameOrId = productLabel ? `${productLabel} (${item.productId})` : item.productId;
+        setError(`จำนวนที่ขอเบิก (${nextRequested}) เกินจำนวนคงเหลือ (${available}) สำหรับสินค้า ${nameOrId}`);
+        return;
+      }
+      requestedByProduct.set(item.productId, nextRequested);
     }
 
     const payload = {
@@ -320,34 +372,65 @@ export default function RequestsPage() {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {draftItems.map((item, index) => (
-                    <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                      <select
-                        value={item.productId}
-                        onChange={(event) => updateDraftItem(index, { productId: event.target.value })}
-                        className="md:col-span-2"
-                        disabled={!selectedOrderId || productOptions.length === 0}
-                      >
-                        <option value="">เลือกสินค้า</option>
-                        {productOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(event) => updateDraftItem(index, { quantity: Number(event.target.value) })}
-                      />
-                      {draftItems.length > 1 && (
-                        <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                          ลบ
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {draftItems.map((item, index) => {
+                    const orderItem = item.productId ? orderItemByProductId.get(item.productId) : undefined;
+                    const available = orderItem?.remainingQty ?? 0;
+                    const isOutOfStock = item.productId ? available <= 0 : false;
+                    const quantityValue = isOutOfStock ? 0 : item.quantity;
+
+                    return (
+                      <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
+                        <div className="md:col-span-2">
+                          <select
+                            value={item.productId}
+                            onChange={(event) => {
+                              const nextProductId = event.target.value;
+                              const nextOrderItem = orderItemByProductId.get(nextProductId);
+                              const initialQuantity = nextOrderItem && nextOrderItem.remainingQty > 0 ? 1 : 0;
+                              updateDraftItem(index, { productId: nextProductId, quantity: initialQuantity });
+                            }}
+                            disabled={!selectedOrderId || productOptions.length === 0}
+                            className="w-full"
+                          >
+                            <option value="">เลือกสินค้า</option>
+                            {productOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            min={isOutOfStock ? 0 : 1}
+                            max={isOutOfStock ? undefined : available}
+                            value={quantityValue}
+                            onChange={(event) => {
+                              const rawValue = Number(event.target.value);
+                              const sanitized = Number.isFinite(rawValue) ? Math.max(1, Math.trunc(rawValue)) : 1;
+                              const clamped = available > 0 ? Math.min(available, sanitized) : sanitized;
+                              updateDraftItem(index, { quantity: clamped });
+                            }}
+                            disabled={isOutOfStock}
+                            className="w-full"
+                          />
+                        </div>
+                        {draftItems.length > 1 && (
+                          <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                            ลบ
+                          </button>
+                        )}
+                        <div className="md:col-span-4 space-y-1 text-xs">
+                          {item.productId && <p className="text-slate-500">คงเหลือใน Order {available} ชิ้น</p>}
+                          {item.productId && item.quantity > available && available >= 0 && (
+                            <p className="text-rose-500">จำนวนที่ขอเบิกเกินจำนวนใน Order</p>
+                          )}
+                          {isOutOfStock && <p className="text-amber-600">สินค้าใน Order หมดแล้ว ไม่สามารถเบิกได้</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
                   <span>จำนวนสินค้ารวม</span>
@@ -508,6 +591,34 @@ export default function RequestsPage() {
           </div>
         </section>
       )}
+
+      <section className="card space-y-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">รายการคำขอทั้งหมด</h2>
+          <p className="text-sm text-slate-500">ดึงจาก /requests และเรียงตามวันที่ล่าสุดก่อน</p>
+        </div>
+        <div className="space-y-3">
+          {(allRequests ?? []).map((request) => (
+            <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-col gap-2 text-sm md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-800">{request.requestId}</p>
+                  <p className="text-xs text-slate-500">
+                    วันที่ {format(new Date(request.requestDate), 'dd MMM yyyy')} • Order: {request.orderId ?? '-'}
+                  </p>
+                </div>
+                <div className="text-xs">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">{request.status}</span>
+                </div>
+              </div>
+              {request.description && <p className="mt-3 text-sm text-slate-600">{request.description}</p>}
+            </div>
+          ))}
+          {(allRequests?.length ?? 0) === 0 && (
+            <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอ</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
