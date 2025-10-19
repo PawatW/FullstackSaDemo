@@ -4,7 +4,9 @@ import com.inv.model.Request;
 import com.inv.model.RequestItem;
 import com.inv.service.RequestService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.List;
@@ -25,7 +27,11 @@ public class RequestController {
     public String createRequest(@RequestBody RequestRequest reqRequest, Principal principal) { // return String
         String staffId = principal.getName();
         reqRequest.getRequest().setStaffId(staffId);
-        return requestService.createRequest(reqRequest.getRequest(), reqRequest.getItems());
+        try {
+            return requestService.createRequest(reqRequest.getRequest(), reqRequest.getItems());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
     }
 
     @GetMapping("/pending")
