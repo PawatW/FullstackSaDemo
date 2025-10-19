@@ -19,7 +19,7 @@ public class OrderRepository {
     private Order mapRow(ResultSet rs, int rowNum) throws SQLException {
         Order o = new Order();
         o.setOrderId(rs.getString("order_id")); // rs.getString
-        o.setOrderDate(rs.getDate("order_date").toLocalDate());
+        o.setOrderDate(rs.getString("order_date"));
         o.setTotalAmount(rs.getBigDecimal("total_amount"));
         o.setStatus(rs.getString("status"));
         o.setCustomerId(rs.getString("customer_id")); // rs.getString
@@ -51,12 +51,11 @@ public class OrderRepository {
         );
     }
 
-    public void saveOrderItem(OrderItem i) {
-        jdbcTemplate.update(
-                "INSERT INTO orderitem(order_item_id, order_id, product_id, quantity, unit_price, line_total, fulfilled_qty, remaining_qty) VALUES (?,?,?,?,?,?,?,?)",
-                i.getOrderItemId(), i.getOrderId(), i.getProductId(), i.getQuantity(),
-                i.getUnitPrice(), i.getLineTotal(), i.getFulfilledQty(), i.getQuantity() // remaining_qty starts equal to quantity
-        );
+    public void saveOrderItem(OrderItem item) {
+        String sql = "INSERT INTO orderitem(order_item_id, order_id, product_id, quantity, unit_price, line_total, " +
+                "fulfilled_qty) VALUES (?,?,?,?,?,?,?)"; // <-- ลบ remaining_qty ออก
+        jdbcTemplate.update(sql, item.getOrderItemId(), item.getOrderId(), item.getProductId(), item.getQuantity(),
+                item.getUnitPrice(), item.getLineTotal(), item.getFulfilledQty()); // <-- ลบ getRemainingQty() ออก
     }
 
     public List<Order> findConfirmedOrders() {

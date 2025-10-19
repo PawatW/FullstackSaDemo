@@ -7,7 +7,7 @@ import java.util.List;
 
 public class Order {
     private String orderId; // แก้เป็น String
-    private LocalDate orderDate;
+    private String orderDate;
     private BigDecimal totalAmount;
     private String status;
     private String customerId; // แก้เป็น String
@@ -27,8 +27,8 @@ public class Order {
 
 
     //... (Getters and Setters ที่เหลือ)
-    public LocalDate getOrderDate() { return orderDate; }
-    public void setOrderDate(LocalDate orderDate) { this.orderDate = orderDate; }
+    public String getOrderDate() { return orderDate; }
+    public void setOrderDate(String orderDate) { this.orderDate = orderDate; }
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }

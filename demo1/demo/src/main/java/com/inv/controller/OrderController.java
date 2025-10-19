@@ -6,6 +6,8 @@ import com.inv.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity; // Import เพิ่ม
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+import java.util.Collections;
 
 import java.security.Principal;
 import java.util.List;
@@ -23,9 +25,12 @@ public class OrderController {
     }
 
     @PostMapping
-    public String createOrder(@RequestBody OrderRequest orderRequest, Principal principal) { // return String
+    public Map<String, String> createOrder(@RequestBody OrderRequest orderRequest, Principal principal) { // return Map
         String staffId = principal.getName();
-        return orderService.createOrder(orderRequest.getOrder(), orderRequest.getItems(), staffId);
+        // รับ orderId ที่สร้างเสร็จ
+        String orderId = orderService.createOrder(orderRequest.getOrder(), orderRequest.getItems(), staffId);
+        // ส่งกลับเป็น JSON object
+        return Collections.singletonMap("orderId", orderId);
     }
 
     @GetMapping("/confirmed")
