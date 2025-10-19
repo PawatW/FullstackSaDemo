@@ -41,6 +41,8 @@ public class StockTransactionRepository {
     }
 
     public List<StockTransaction> findAll() {
-        return jdbcTemplate.query("SELECT * FROM StockTransaction ORDER BY transaction_date DESC", this::mapRow);
+        String sql = "SELECT transaction_id, transaction_date, type, product_id, quantity, staff_id, description " +
+                "FROM StockTransaction ORDER BY transaction_date DESC";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 }

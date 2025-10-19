@@ -41,7 +41,9 @@ public class OrderRepository {
     }
 
     public List<Order> findAll() {
-        return jdbcTemplate.query("SELECT * FROM \"Order\" ORDER BY order_date DESC", this::mapRow);
+        String sql = "SELECT order_id, order_date, total_amount, status, customer_id, staff_id " +
+                "FROM \"Order\" ORDER BY order_date DESC";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public void save(Order o) {
@@ -59,11 +61,15 @@ public class OrderRepository {
     }
 
     public List<Order> findConfirmedOrders() {
-        return jdbcTemplate.query("SELECT * FROM \"Order\" WHERE status = 'Confirmed'", this::mapRow);
+        String sql = "SELECT order_id, order_date, total_amount, status, customer_id, staff_id " +
+                "FROM \"Order\" WHERE status = 'Confirmed'";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public List<OrderItem> findItemsByOrderId(String orderId) { // รับ String orderId
-        return jdbcTemplate.query("SELECT * FROM orderitem WHERE order_id = ?", this::mapRowItem, orderId);
+        String sql = "SELECT order_item_id, order_id, product_id, quantity, unit_price, line_total, fulfilled_qty, remaining_qty " +
+                "FROM orderitem WHERE order_id = ?";
+        return jdbcTemplate.query(sql, this::mapRowItem, orderId);
     }
 
     public void updateOrderItemFulfillment(String orderId, String productId, int fulfillQty) { // รับ String IDs
@@ -71,18 +77,20 @@ public class OrderRepository {
     }
 
     public boolean areAllOrderItemsFulfilled(String orderId) { // รับ String orderId
-        String sql = "SELECT COUNT(*) FROM OrderItem WHERE order_id = ? AND remaining_qty > 0";
+        String sql = "SELECT COUNT(1) FROM OrderItem WHERE order_id = ? AND remaining_qty > 0";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, orderId);
         return count != null && count == 0;
     }
 
     public List<Order> findOrdersReadyToClose() {
-        String sql = "SELECT * FROM \"Order\" AS o WHERE o.status = 'Confirmed' AND NOT EXISTS (SELECT 1 FROM OrderItem AS oi WHERE oi.order_id = o.order_id AND oi.remaining_qty > 0)";
+        String sql = "SELECT o.order_id, o.order_date, o.total_amount, o.status, o.customer_id, o.staff_id " +
+                "FROM \"Order\" AS o WHERE o.status = 'Confirmed' " +
+                "AND NOT EXISTS (SELECT 1 FROM OrderItem AS oi WHERE oi.order_id = o.order_id AND oi.remaining_qty > 0)";
         return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public boolean hasPendingRequests(String orderId) { // รับ String orderId
-        String sql = "SELECT COUNT(*) FROM Request WHERE order_id = ? AND status != 'Closed'";
+        String sql = "SELECT COUNT(1) FROM Request WHERE order_id = ? AND status != 'Closed'";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, orderId);
         return count != null && count > 0;
     }

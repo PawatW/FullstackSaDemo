@@ -29,12 +29,14 @@ public class ProductRepository {
     }
 
     public List<Product> findAll() {
-        return jdbcTemplate.query("SELECT * FROM product ORDER BY product_name", this::mapRow);
+        String sql = "SELECT product_id, product_name, description, unit, price_per_unit, supplier_id, quantity, image_url " +
+                "FROM product ORDER BY product_name";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public Product findById(String id) { // รับ String id
         List<Product> list = jdbcTemplate.query(
-                "SELECT * FROM product WHERE product_id = ?",
+                "SELECT product_id, product_name, description, unit, price_per_unit, supplier_id, quantity, image_url FROM product WHERE product_id = ?",
                 this::mapRow,
                 id
         );
