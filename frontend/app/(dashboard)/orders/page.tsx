@@ -92,14 +92,14 @@ export default function OrdersPage() {
       });
 
     const payload = {
-      order: {
-        orderDate,
-        customerId,
-        status,
-        totalAmount
-      },
-      items: preparedItems
-    };
+      order: {
+        orderDate,
+        customerId,
+        status,
+        totalAmount: totalAmount // <-- แก้ไขบรรทัดนี้
+      },
+      items: preparedItems
+    };
 
     try {
       await apiFetch<string>('/orders', {
