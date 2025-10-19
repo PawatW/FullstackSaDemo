@@ -26,12 +26,13 @@ public class CustomerRepository {
     }
 
     public List<Customer> findAll() {
-        return jdbcTemplate.query("SELECT * FROM Customer", this::mapRow);
+        String sql = "SELECT customer_id, customer_name, address, phone, email FROM Customer";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public Customer findById(String id) { // รับ String id
         List<Customer> list = jdbcTemplate.query(
-                "SELECT * FROM Customer WHERE customer_id = ?",
+                "SELECT customer_id, customer_name, address, phone, email FROM Customer WHERE customer_id = ?",
                 this::mapRow,
                 id
         );
@@ -39,12 +40,14 @@ public class CustomerRepository {
     }
 
     public Customer findByPhone(String phone) {
-        List<Customer> list = jdbcTemplate.query("SELECT * FROM Customer WHERE phone = ?", this::mapRow, phone);
+        String sql = "SELECT customer_id, customer_name, address, phone, email FROM Customer WHERE phone = ?";
+        List<Customer> list = jdbcTemplate.query(sql, this::mapRow, phone);
         return list.isEmpty() ? null : list.get(0);
     }
 
     public Customer findByEmail(String email) {
-        List<Customer> list = jdbcTemplate.query("SELECT * FROM Customer WHERE email = ?", this::mapRow, email);
+        String sql = "SELECT customer_id, customer_name, address, phone, email FROM Customer WHERE email = ?";
+        List<Customer> list = jdbcTemplate.query(sql, this::mapRow, email);
         return list.isEmpty() ? null : list.get(0);
     }
 

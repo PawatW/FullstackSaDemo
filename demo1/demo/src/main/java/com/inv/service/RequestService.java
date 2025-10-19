@@ -1,13 +1,17 @@
 package com.inv.service;
 
+import com.inv.model.OrderItem;
 import com.inv.model.Request;
 import com.inv.model.RequestItem;
+import com.inv.repo.OrderRepository;
 import com.inv.repo.RequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID; // Import เพิ่ม
 
 @Service
@@ -16,12 +20,37 @@ public class RequestService {
     @Autowired
     private RequestRepository requestRepository;
 
+    @Autowired
+    private OrderRepository orderRepository;
+
     public List<Request> getAllRequests() {
         return requestRepository.findAll();
     }
 
     @Transactional
     public String createRequest(Request req, List<RequestItem> items) { // return String
+        if (req.getOrderId() != null) {
+            List<OrderItem> orderItems = orderRepository.findItemsByOrderId(req.getOrderId());
+            Map<String, Integer> availableByProduct = new HashMap<>();
+            for (OrderItem orderItem : orderItems) {
+                availableByProduct.putIfAbsent(orderItem.getProductId(), orderItem.getRemainingQty());
+            }
+
+            Map<String, Integer> requestedByProduct = new HashMap<>();
+            for (RequestItem item : items) {
+                String productId = item.getProductId();
+                if (!availableByProduct.containsKey(productId)) {
+                    throw new IllegalArgumentException("ไม่พบสินค้าใน Order ที่เลือก");
+                }
+                int available = availableByProduct.get(productId);
+                int nextRequested = requestedByProduct.getOrDefault(productId, 0) + item.getQuantity();
+                if (nextRequested > available) {
+                    throw new IllegalArgumentException("จำนวนที่ขอเบิกเกินจำนวนคงเหลือใน Order");
+                }
+                requestedByProduct.put(productId, nextRequested);
+            }
+        }
+
         String requestId = "REQ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         req.setRequestId(requestId);
         requestRepository.save(req);

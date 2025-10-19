@@ -28,12 +28,13 @@ public class UserRepository {
     }
 
     public List<Staff> findAll() {
-        return jdbcTemplate.query("SELECT * FROM Staff ORDER BY staff_name", this::mapRow);
+        String sql = "SELECT staff_id, staff_name, role, email, password, phone, active FROM Staff ORDER BY staff_name";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public Staff findByEmail(String email) {
         List<Staff> list = jdbcTemplate.query(
-                "SELECT * FROM Staff WHERE email = ?",
+                "SELECT staff_id, staff_name, role, email, password, phone, active FROM Staff WHERE email = ?",
                 this::mapRow,
                 email
         );

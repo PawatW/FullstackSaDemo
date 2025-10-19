@@ -26,12 +26,13 @@ public class SupplierRepository {
     }
 
     public List<Supplier> findAll() {
-        return jdbcTemplate.query("SELECT * FROM Supplier", this::mapRow);
+        String sql = "SELECT supplier_id, supplier_name, address, phone, email FROM Supplier";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public Supplier findById(String id) { // รับ String id
         List<Supplier> list = jdbcTemplate.query(
-                "SELECT * FROM Supplier WHERE supplier_id = ?",
+                "SELECT supplier_id, supplier_name, address, phone, email FROM Supplier WHERE supplier_id = ?",
                 this::mapRow,
                 id
         );
@@ -39,7 +40,8 @@ public class SupplierRepository {
     }
 
     public Supplier findByEmail(String email) {
-        List<Supplier> list = jdbcTemplate.query("SELECT * FROM Supplier WHERE email = ?", this::mapRow, email);
+        String sql = "SELECT supplier_id, supplier_name, address, phone, email FROM Supplier WHERE email = ?";
+        List<Supplier> list = jdbcTemplate.query(sql, this::mapRow, email);
         return list.isEmpty() ? null : list.get(0);
     }
 

@@ -42,7 +42,9 @@ public class RequestRepository {
     }
 
     public List<Request> findAll() {
-        return jdbcTemplate.query("SELECT * FROM Request ORDER BY request_date DESC", this::mapRow);
+        String sql = "SELECT request_id, request_date, status, order_id, customer_id, staff_id, description, approved_by, approved_date " +
+                "FROM Request ORDER BY request_date DESC";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public void save(Request r) {
@@ -60,27 +62,35 @@ public class RequestRepository {
     }
 
     public List<Request> findPendingRequests() {
-        return jdbcTemplate.query("SELECT * FROM request WHERE status = 'Awaiting Approval'", this::mapRow);
+        String sql = "SELECT request_id, request_date, status, order_id, customer_id, staff_id, description, approved_by, approved_date " +
+                "FROM request WHERE status = 'Awaiting Approval'";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public RequestItem findItemById(String requestItemId) { // รับ String
-        String sql = "SELECT * FROM requestitem WHERE request_item_id = ?";
+        String sql = "SELECT request_item_id, request_id, product_id, quantity, fulfilled_qty, remaining_qty " +
+                "FROM requestitem WHERE request_item_id = ?";
         List<RequestItem> items = jdbcTemplate.query(sql, this::mapRowItem, requestItemId);
         return items.isEmpty() ? null : items.get(0);
     }
 
     public Request findById(String requestId) { // รับ String
-        String sql = "SELECT * FROM request WHERE request_id = ?";
+        String sql = "SELECT request_id, request_date, status, order_id, customer_id, staff_id, description, approved_by, approved_date " +
+                "FROM request WHERE request_id = ?";
         List<Request> requests = jdbcTemplate.query(sql, this::mapRow, requestId);
         return requests.isEmpty() ? null : requests.get(0);
     }
 
     public List<Request> findApprovedRequests() {
-        return jdbcTemplate.query("SELECT * FROM Request WHERE status = 'Approved'", this::mapRow);
+        String sql = "SELECT request_id, request_date, status, order_id, customer_id, staff_id, description, approved_by, approved_date " +
+                "FROM Request WHERE status = 'Approved'";
+        return jdbcTemplate.query(sql, this::mapRow);
     }
 
     public List<RequestItem> findItemsByRequestId(String requestId) { // รับ String
-        return jdbcTemplate.query("SELECT * FROM requestitem WHERE request_id = ?", this::mapRowItem, requestId);
+        String sql = "SELECT request_item_id, request_id, product_id, quantity, fulfilled_qty, remaining_qty " +
+                "FROM requestitem WHERE request_id = ?";
+        return jdbcTemplate.query(sql, this::mapRowItem, requestId);
     }
 
     public void updateItemFulfillment(String requestItemId, int fulfillQty) { // รับ String
@@ -88,7 +98,7 @@ public class RequestRepository {
     }
 
     public boolean areAllItemsFulfilled(String requestId) { // รับ String
-        String sql = "SELECT COUNT(*) FROM requestitem WHERE request_id = ? AND remaining_qty > 0";
+        String sql = "SELECT COUNT(1) FROM requestitem WHERE request_id = ? AND remaining_qty > 0";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, requestId);
         return count != null && count == 0;
     }
@@ -102,7 +112,9 @@ public class RequestRepository {
     }
 
     public List<Request> findReadyToCloseRequests() {
-        String sql = "SELECT * FROM Request r WHERE r.status = 'Approved' AND NOT EXISTS (SELECT 1 FROM RequestItem ri WHERE ri.request_id = r.request_id AND ri.remaining_qty > 0)";
+        String sql = "SELECT r.request_id, r.request_date, r.status, r.order_id, r.customer_id, r.staff_id, r.description, r.approved_by, r.approved_date " +
+                "FROM Request r WHERE r.status = 'Approved' " +
+                "AND NOT EXISTS (SELECT 1 FROM RequestItem ri WHERE ri.request_id = r.request_id AND ri.remaining_qty > 0)";
         return jdbcTemplate.query(sql, this::mapRow);
     }
 
