@@ -74,7 +74,7 @@ export default function OrdersPage() {
     const formData = new FormData(form);
     const customerId = String(formData.get('customerId'));
     const orderDate = String(formData.get('orderDate'));
-    const status = String(formData.get('status') || 'Pending');
+    const status = 'Confirmed';
 
     const preparedItems = draftItems
       .filter((item) => item.productId && item.quantity > 0)
@@ -209,13 +209,6 @@ export default function OrdersPage() {
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
                   <input name="orderDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">สถานะ</label>
-                  <select name="status" defaultValue="Pending">
-                    <option value="Pending">Pending</option>
-                    <option value="Confirmed">Confirmed</option>
-                  </select>
                 </div>
               </div>
 
