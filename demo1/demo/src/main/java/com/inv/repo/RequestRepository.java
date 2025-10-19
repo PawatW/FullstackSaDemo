@@ -54,8 +54,8 @@ public class RequestRepository {
 
     public void saveRequestItem(RequestItem i) {
         jdbcTemplate.update(
-                "INSERT INTO requestitem(request_item_id, request_id, product_id, quantity, fulfilled_qty, remaining_qty) VALUES (?,?,?,?,?,?)",
-                i.getRequestItemId(), i.getRequestId(), i.getProductId(), i.getQuantity(), 0, i.getQuantity()
+                "INSERT INTO requestitem(request_item_id, request_id, product_id, quantity, fulfilled_qty) VALUES (?,?,?,?,?)",
+                i.getRequestItemId(), i.getRequestId(), i.getProductId(), i.getQuantity(), 0
         );
     }
 
