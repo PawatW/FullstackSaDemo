@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
-import type { Order, Request, RequestItem, Product } from '../../../lib/types';
+import type { Order, OrderItem, Product, Request, RequestItem } from '../../../lib/types';
 
 interface DraftRequestItem {
   productId: string;
@@ -22,9 +22,14 @@ export default function RequestsPage() {
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
+  const [selectedOrderId, setSelectedOrderId] = useState('');
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
+  const { data: selectedOrderItems } = useAuthedSWR<OrderItem[]>(
+    selectedOrderId ? `/orders/${selectedOrderId}/items` : null,
+    token
+  );
   const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' || role === 'ADMIN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
   const { data: approvedRequests, mutate: mutateApproved } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/approved-requests' : null, token, { refreshInterval: 15000 });
   const canClose = role === 'TECHNICIAN' || role === 'ADMIN';
@@ -52,6 +57,46 @@ export default function RequestsPage() {
   const removeDraftRow = (index: number) => setDraftItems((prev) => prev.filter((_, idx) => idx !== index));
 
   const resetCreateForm = () => {
+    setSelectedOrderId('');
+    setDraftItems([{ productId: '', quantity: 1 }]);
+    setFormResetKey((prev) => prev + 1);
+  };
+
+  const productOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: { value: string; label: string }[] = [];
+    (selectedOrderItems ?? []).forEach((item) => {
+      if (seen.has(item.productId)) {
+        return;
+      }
+      seen.add(item.productId);
+      const product = (products ?? []).find((candidate) => candidate.productId === item.productId);
+      options.push({
+        value: item.productId,
+        label: product ? `${product.productName} (${product.productId})` : item.productId
+      });
+    });
+    return options;
+  }, [products, selectedOrderItems]);
+
+  const allowedProductIds = useMemo(() => new Set(productOptions.map((option) => option.value)), [productOptions]);
+
+  useEffect(() => {
+    setDraftItems((prev) => {
+      let mutated = false;
+      const next = prev.map((item) => {
+        if (item.productId && !allowedProductIds.has(item.productId)) {
+          mutated = true;
+          return { ...item, productId: '' };
+        }
+        return item;
+      });
+      return mutated ? next : prev;
+    });
+  }, [allowedProductIds]);
+
+  const handleOrderSelection = (orderId: string) => {
+    setSelectedOrderId(orderId);
     setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
   };
@@ -64,12 +109,30 @@ export default function RequestsPage() {
     setSuccessMessage(null);
 
     const formData = new FormData(form);
-    const orderId = String(formData.get('orderId'));
+    const orderId = selectedOrderId || String(formData.get('orderId'));
+    if (!orderId) {
+      setError('กรุณาเลือก Order ที่ยืนยัน');
+      return;
+    }
     const requestDate = String(formData.get('requestDate'));
     const description = String(formData.get('description') || '');
 
     const selectedOrder = confirmedOrders?.find((order) => order.orderId === orderId);
     const customerId = selectedOrder?.customerId;
+
+    const preparedItems = draftItems
+      .filter((item) => item.productId && item.quantity > 0 && allowedProductIds.has(item.productId))
+      .map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        fulfilledQty: 0,
+        remainingQty: item.quantity
+      }));
+
+    if (preparedItems.length === 0) {
+      setError('กรุณาเลือกรายการสินค้าที่เกี่ยวข้องกับ Order');
+      return;
+    }
 
     const payload = {
       request: {
@@ -79,14 +142,7 @@ export default function RequestsPage() {
         status: 'Awaiting Approval',
         description
       },
-      items: draftItems
-        .filter((item) => item.productId && item.quantity > 0)
-        .map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          fulfilledQty: 0,
-          remainingQty: item.quantity
-        }))
+      items: preparedItems
     };
 
     try {
@@ -228,7 +284,12 @@ export default function RequestsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
-                  <select name="orderId" required>
+                  <select
+                    name="orderId"
+                    required
+                    value={selectedOrderId}
+                    onChange={(event) => handleOrderSelection(event.target.value)}
+                  >
                     <option value="">เลือก Order</option>
                     {(confirmedOrders ?? []).map((order) => (
                       <option key={order.orderId} value={order.orderId}>
@@ -252,7 +313,8 @@ export default function RequestsPage() {
                   <button
                     type="button"
                     onClick={addDraftRow}
-                    className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+                    disabled={!selectedOrderId || productOptions.length === 0}
+                    className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     เพิ่มสินค้า
                   </button>
@@ -264,11 +326,12 @@ export default function RequestsPage() {
                         value={item.productId}
                         onChange={(event) => updateDraftItem(index, { productId: event.target.value })}
                         className="md:col-span-2"
+                        disabled={!selectedOrderId || productOptions.length === 0}
                       >
                         <option value="">เลือกสินค้า</option>
-                        {(products ?? []).map((product) => (
-                          <option key={product.productId} value={product.productId}>
-                            {product.productName} ({product.productId})
+                        {productOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
