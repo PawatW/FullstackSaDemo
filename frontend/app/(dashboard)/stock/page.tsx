@@ -279,42 +279,62 @@ export default function StockPage() {
               </p>
             </div>
           </div>
-          <div className="space-y-3">
-            {transactions === undefined ? (
-              <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
-                กำลังโหลดประวัติธุรกรรม...
-              </p>
-            ) : (
-              <>
-                {filteredTransactions.map((transaction) => (
-                  <button
-                    key={transaction.transactionId}
-                    type="button"
-                    onClick={() => {
-                      setInspectedTransactionId(transaction.transactionId);
-                      setTransactionModalOpen(true);
-                    }}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-600 transition hover:border-primary-200 hover:bg-primary-50/40"
-                  >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <p className="font-semibold text-slate-800">{transaction.transactionId}</p>
-                        <p className="text-xs text-slate-500">สินค้า {transaction.productId} • ประเภท {transaction.type}</p>
-                      </div>
-                      <div className="text-xs text-slate-500 md:text-right">
-                        <p>{format(new Date(transaction.transactionDate), 'dd MMM yyyy HH:mm')}</p>
-                        <p className="mt-1">จำนวน {transaction.quantity} • โดย {transaction.staffId}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                {filteredTransactions.length === 0 && (
-                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
-                    {sortedTransactions.length === 0 ? 'ยังไม่มีธุรกรรมสต็อก' : 'ไม่พบรายการที่ตรงกับการค้นหา'}
-                  </p>
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Transaction ID</th>
+                  <th className="px-4 py-3">วันที่</th>
+                  <th className="px-4 py-3">สินค้า</th>
+                  <th className="px-4 py-3">ประเภท</th>
+                  <th className="px-4 py-3">จำนวน</th>
+                  <th className="px-4 py-3">ผู้ทำรายการ</th>
+                  <th className="px-4 py-3">รายละเอียด</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {transactions === undefined ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">
+                      กำลังโหลดประวัติธุรกรรม...
+                    </td>
+                  </tr>
+                ) : filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                      {sortedTransactions.length === 0 ? 'ยังไม่มีธุรกรรมสต็อก' : 'ไม่พบรายการที่ตรงกับการค้นหา'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTransactions.map((transaction) => (
+                    <tr key={transaction.transactionId} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{transaction.transactionId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {format(new Date(transaction.transactionDate), 'dd MMM yyyy HH:mm')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{transaction.productId}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                        {transaction.type === 'IN' ? 'สินค้าเข้า' : 'สินค้าออก'}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-800">{transaction.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{transaction.staffId}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInspectedTransactionId(transaction.transactionId);
+                            setTransactionModalOpen(true);
+                          }}
+                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                        >
+                          ดูรายละเอียด
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </>
-            )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
