@@ -27,8 +27,14 @@ export default function DashboardPage() {
   const tasks = [
     {
       title: 'บันทึกสินค้าเข้า',
-      description: 'บันทึก Stock-In พร้อม Supplier reference และโน้ตตาม Use Case',
+      description: 'บันทึก Stock-In พร้อม Supplier reference และโน้ตประกอบ',
       href: '/stock',
+      roles: ['WAREHOUSE']
+    },
+    {
+      title: 'ดำเนินการเบิกสินค้า',
+      description: 'Warehouse ค้นหา Request ที่อนุมัติแล้วและตัดสต็อกจากคลัง',
+      href: '/requests',
       roles: ['WAREHOUSE']
     },
     {
@@ -99,8 +105,8 @@ export default function DashboardPage() {
         <section className="card space-y-4 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">เวิร์กโฟลว์ตาม Use Case</h2>
-              <p className="text-sm text-slate-500">เลือกรายการเพื่อไปยังหน้าที่เกี่ยวข้องกับบทบาทของคุณ</p>
+              <h2 className="text-lg font-semibold text-slate-900">งานตามบทบาท</h2>
+              <p className="text-sm text-slate-500">เลือกรายการเพื่อไปยังหน้าที่ต้องจัดการ</p>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
