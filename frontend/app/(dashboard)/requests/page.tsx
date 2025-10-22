@@ -465,9 +465,8 @@ export default function RequestsPage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
+      <header>
         <h1 className="text-2xl font-semibold text-slate-900">Requests</h1>
-        <p className="text-sm text-slate-500">ครอบคลุม Use Case Technician, Foreman และ Warehouse จาก RequestController และ StockController</p>
       </header>
 
       <section className="card space-y-4 p-6">

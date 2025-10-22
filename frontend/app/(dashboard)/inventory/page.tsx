@@ -102,7 +102,7 @@ export default function InventoryPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
-        <p className="text-sm text-slate-500">ดึงข้อมูลจาก /products และรองรับการสร้างสินค้าใหม่ตาม Use Case</p>
+        <p className="text-sm text-slate-500">ดึงข้อมูลจาก /products และรองรับการสร้างสินค้าใหม่สำหรับคลัง</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
