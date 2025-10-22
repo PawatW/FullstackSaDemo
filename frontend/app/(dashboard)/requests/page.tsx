@@ -22,15 +22,14 @@ export default function RequestsPage() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
+  const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [allRequestsSearch, setAllRequestsSearch] = useState('');
   const [inspectedAllRequestId, setInspectedAllRequestId] = useState<string | null>(null);
   const [isAllRequestModalOpen, setAllRequestModalOpen] = useState(false);
-  const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
-  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string>('');
-  const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products, mutate: mutateProducts } = useAuthedSWR<Product[]>('/products', token);
@@ -45,6 +44,12 @@ export default function RequestsPage() {
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
   });
+ 
+  // ดึงข้อมูลสำหรับ Warehouse Modal
+  const { data: warehouseModalItems, isLoading: isWarehouseItemsLoading } = useAuthedSWR<RequestItem[]>(
+    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
+    token
+  );
   const { data: foremanRequestItems } = useAuthedSWR<RequestItem[]>(
     foremanExpandedRequestId ? `/requests/${foremanExpandedRequestId}/items` : null,
     token
@@ -52,11 +57,6 @@ export default function RequestsPage() {
   const { data: warehouseRequestItems } = useAuthedSWR<RequestItem[]>(
     warehouseExpandedRequestId ? `/requests/${warehouseExpandedRequestId}/items` : null,
     token
-  );
-  const { data: warehouseModalItems } = useAuthedSWR<RequestItem[]>(
-    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
-    token,
-    { refreshInterval: 15000 }
   );
   const { data: allRequestItems } = useAuthedSWR<RequestItem[]>(
     inspectedAllRequestId ? `/requests/${inspectedAllRequestId}/items` : null,
@@ -149,6 +149,15 @@ export default function RequestsPage() {
     }
     return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
   }, [sortedAllRequests, inspectedAllRequestId]);
+  const warehouseActiveRequest = useMemo(() => {
+    if (!warehouseModalRequestId) {
+      return null;
+    }
+    // ค้นหา Request ที่ถูกเลือกจาก 'approvedRequests'
+    return (approvedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+  }, [approvedRequests, warehouseModalRequestId]);
+
+  const warehouseActiveItems = warehouseModalItems ?? [];
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
@@ -208,63 +217,6 @@ export default function RequestsPage() {
       setAllRequestModalOpen(false);
     }
   }, [inspectedAllRequestId, sortedAllRequests]);
-
-  useEffect(() => {
-    if (!isWarehouseModalOpen) {
-      return;
-    }
-    if (filteredWarehouseRequests.length === 0) {
-      if (warehouseModalRequestId) {
-        setWarehouseModalRequestId('');
-      }
-      return;
-    }
-    const stillVisible = filteredWarehouseRequests.some((request) => request.requestId === warehouseModalRequestId);
-    if (!stillVisible) {
-      setWarehouseModalRequestId(filteredWarehouseRequests[0].requestId);
-    }
-  }, [filteredWarehouseRequests, isWarehouseModalOpen, warehouseModalRequestId]);
-
-  useEffect(() => {
-    setFulfillQuantities({});
-    setFulfilling({});
-  }, [warehouseModalRequestId]);
-
-  useEffect(() => {
-    if (!isWarehouseModalOpen || !warehouseModalRequestId || !warehouseModalItems) {
-      return;
-    }
-    setFulfillQuantities((prev) => {
-      const next: Record<string, number> = { ...prev };
-      let mutated = false;
-      const activeIds = new Set<string>();
-      warehouseActiveItems.forEach((item) => {
-        activeIds.add(item.requestItemId);
-        const product = productById.get(item.productId);
-        const stockAvailable = product?.quantity ?? 0;
-        const maxAllowed = Math.min(item.remainingQty, stockAvailable);
-        const defaultQty = maxAllowed > 0 ? maxAllowed : 0;
-        const current = next[item.requestItemId];
-        if (current === undefined) {
-          next[item.requestItemId] = defaultQty;
-          mutated = true;
-          return;
-        }
-        const sanitized = maxAllowed > 0 ? Math.min(maxAllowed, Math.max(1, Math.trunc(current))) : 0;
-        if (sanitized !== current) {
-          next[item.requestItemId] = sanitized;
-          mutated = true;
-        }
-      });
-      Object.keys(next).forEach((key) => {
-        if (!activeIds.has(key)) {
-          delete next[key];
-          mutated = true;
-        }
-      });
-      return mutated ? next : prev;
-    });
-  }, [isWarehouseModalOpen, warehouseActiveItems, warehouseModalItems, warehouseModalRequestId, productById]);
 
   const updateDraftItem = (index: number, patch: Partial<DraftRequestItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
@@ -516,6 +468,73 @@ export default function RequestsPage() {
       <header>
         <h1 className="text-2xl font-semibold text-slate-900">Requests</h1>
       </header>
+
+      <section className="card space-y-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Warehouse Use Case: เบิกของ</h2>
+          <p className="text-sm text-slate-500">อธิบายขั้นตอนการ Fulfill Request สำหรับบทบาท Warehouse ตามข้อมูลที่ทีมต้องการ</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <dl className="space-y-3">
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case name</dt>
+                <dd className="text-slate-800">เบิกของ</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case description</dt>
+                <dd className="text-slate-700">
+                  สร้างคำขอเบิกวัสดุ/อุปกรณ์ เลือกจำนวนที่ต้องการ และดำเนินการเบิกให้ลูกค้าตามคำขอที่ได้รับการอนุมัติ
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</dt>
+                <dd className="text-slate-700">Staff (role = Warehouse)</dd>
+              </div>
+            </dl>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preconditions</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
+              <li>ผู้ใช้ล็อกอินเป็น Staff ที่สถานะ Active</li>
+              <li>ระบบทราบบทบาทจากข้อมูล Staff.role</li>
+              <li>มีคำขอที่ได้รับการอนุมัติ (Approved) รอเบิก</li>
+              <li>สินค้าแต่ละรายการมีสต็อกคงเหลือเพียงพอ</li>
+              <li>ปริมาณที่เบิกไม่เกินจำนวนคงเหลือที่ระบบคำนวณไว้</li>
+            </ol>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Normal flow</h3>
+          <ol className="mt-3 space-y-3 text-sm text-slate-600">
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">1. เลือกเมนู Fulfill Request</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบแสดงฟอร์มเบิกของและโหลด Request ที่สถานะ Approved มาเตรียมไว้</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">2. ค้นหาคำขอที่ต้องการ</p>
+              <p className="mt-1 text-xs text-slate-500">ผู้ใช้พิมพ์ค้นหาด้วยรหัสคำขอ ลูกค้า หรือคำอธิบาย และระบบจะกรองรายการให้ตรงกับเงื่อนไข</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">3. เลือกคำขอที่ต้องการดำเนินการ</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบแสดงรายละเอียดรายการสินค้า (Request Item) และจำนวนที่ยังคงเหลือให้เบิก</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3 space-y-2">
+              <p className="font-semibold text-slate-700">4. ระบุจำนวนที่จะเบิก</p>
+              <p className="text-xs text-slate-500">ระบบตรวจสอบความถูกต้องของจำนวนที่ระบุ</p>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-slate-500">
+                <li>ต้องมากกว่า 0 และไม่เป็นค่าว่าง</li>
+                <li>ต้องไม่เกินจำนวนคงเหลือของรายการนั้น</li>
+                <li>ตรวจสอบสต็อกปัจจุบันของสินค้าอีกครั้งก่อนยืนยัน</li>
+              </ul>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">5. กดยืนยันการเบิก (Confirm Fulfillment)</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบบันทึกการเบิก อัปเดต Fulfilled Qty ของ Request Item และตัดสต็อกสินค้าทันที</p>
+            </li>
+          </ol>
+        </div>
+      </section>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
       {successMessage && (

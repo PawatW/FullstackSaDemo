@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState ,useEffect} from 'react';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
@@ -13,6 +13,10 @@ export default function SuppliersPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
+  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
+
   const [supplierSearch, setSupplierSearch] = useState('');
   const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
   const [isDetailModalOpen, setDetailModalOpen] = useState(false);
