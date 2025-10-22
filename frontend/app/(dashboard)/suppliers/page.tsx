@@ -13,6 +13,9 @@ export default function SuppliersPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
+  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
 
   const [supplierSearch, setSupplierSearch] = useState('');
   const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
