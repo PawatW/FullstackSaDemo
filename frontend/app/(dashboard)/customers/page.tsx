@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
@@ -19,8 +19,38 @@ export default function CustomersPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [inspectedCustomerId, setInspectedCustomerId] = useState<string | null>(null);
+  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
 
   const canCreate = role === 'SALES';
+
+  const filteredCustomers = useMemo(() => {
+    const data = customers ?? [];
+    const query = customerSearch.trim().toLowerCase();
+    if (!query) {
+      return data;
+    }
+    return data.filter((customer) => {
+      const haystack = [
+        customer.customerId,
+        customer.customerName,
+        customer.phone ?? '',
+        customer.email ?? '',
+        customer.address ?? ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [customers, customerSearch]);
+
+  const inspectedCustomer = useMemo(() => {
+    if (!inspectedCustomerId) {
+      return null;
+    }
+    return (customers ?? []).find((customer) => customer.customerId === inspectedCustomerId) ?? null;
+  }, [customers, inspectedCustomerId]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -60,6 +90,23 @@ export default function CustomersPage() {
     }
   };
 
+  const handleInspectCustomer = (customerId: string) => {
+    if (inspectedCustomerId === customerId) {
+      setInspectedCustomerId(null);
+      setDetailModalOpen(false);
+      return;
+    }
+    setInspectedCustomerId(customerId);
+    setDetailModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (inspectedCustomerId && !(customers ?? []).some((customer) => customer.customerId === inspectedCustomerId)) {
+      setInspectedCustomerId(null);
+      setDetailModalOpen(false);
+    }
+  }, [customers, inspectedCustomerId]);
+
   return (
     <div className="space-y-8">
       <header className="space-y-2">
@@ -73,7 +120,24 @@ export default function CustomersPage() {
       )}
 
       <section className="card space-y-4 p-6">
-        <h2 className="text-lg font-semibold text-slate-900">รายชื่อลูกค้า</h2>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">รายชื่อลูกค้า</h2>
+            <p className="text-sm text-slate-500">ค้นหาและตรวจสอบข้อมูลลูกค้าทั้งหมดจากระบบ</p>
+          </div>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+            <input
+              type="search"
+              value={customerSearch}
+              onChange={(event) => setCustomerSearch(event.target.value)}
+              placeholder="ค้นหาด้วยชื่อ รหัสลูกค้า เบอร์ หรืออีเมล"
+              className="w-full md:w-80"
+            />
+            <p className="text-xs text-slate-400">
+              แสดง {filteredCustomers.length} จาก {customers?.length ?? 0} รายการ
+            </p>
+          </div>
+        </div>
         <div className="overflow-hidden rounded-2xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
             <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -82,28 +146,94 @@ export default function CustomersPage() {
                 <th className="px-4 py-3">ชื่อ</th>
                 <th className="px-4 py-3">เบอร์ติดต่อ</th>
                 <th className="px-4 py-3">อีเมล</th>
+                <th className="px-4 py-3">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {(customers ?? []).map((customer) => (
-                <tr key={customer.customerId}>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{customer.customerId}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600">{customer.customerName}</td>
-                  <td className="px-4 py-3 text-sm text-slate-500">{customer.phone || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-slate-500">{customer.email || '-'}</td>
-                </tr>
-              ))}
-              {(customers?.length ?? 0) === 0 && (
+              {customers === undefined ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-5 text-center text-sm text-slate-500">
-                    ยังไม่มีข้อมูลลูกค้า
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">
+                    กำลังโหลดข้อมูลลูกค้า...
                   </td>
                 </tr>
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">
+                    {(customers?.length ?? 0) === 0 ? 'ยังไม่มีข้อมูลลูกค้า' : 'ไม่พบลูกค้าที่ตรงกับคำค้นหา'}
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const isSelected = inspectedCustomerId === customer.customerId;
+                  return (
+                    <tr
+                      key={customer.customerId}
+                      className={`hover:bg-slate-50/60 ${isSelected ? 'bg-primary-50/60' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{customer.customerId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{customer.customerName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{customer.phone || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{customer.email || '-'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleInspectCustomer(customer.customerId)}
+                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                        >
+                          {isSelected ? 'ซ่อน' : 'ดูรายละเอียด'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </section>
+
+      {isDetailModalOpen && inspectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[80vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียดลูกค้า</h2>
+                  <p className="text-sm text-slate-500">
+                    {inspectedCustomer.customerId} • {inspectedCustomer.customerName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailModalOpen(false);
+                    setInspectedCustomerId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+              <div className="mt-6 space-y-4 text-sm text-slate-600">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                  <div>
+                    <p className="font-semibold text-slate-600">เบอร์ติดต่อ</p>
+                    <p className="mt-1 text-slate-800">{inspectedCustomer.phone || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">อีเมล</p>
+                    <p className="mt-1 text-slate-800">{inspectedCustomer.email || '-'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="font-semibold text-slate-600">ที่อยู่</p>
+                    <p className="mt-1 text-slate-800">{inspectedCustomer.address || 'ไม่ระบุที่อยู่'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {canCreate && (
         <>
