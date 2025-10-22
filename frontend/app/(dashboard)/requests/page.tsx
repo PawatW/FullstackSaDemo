@@ -22,6 +22,8 @@ export default function RequestsPage() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
+  const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -42,6 +44,12 @@ export default function RequestsPage() {
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
   });
+ 
+  // ดึงข้อมูลสำหรับ Warehouse Modal
+  const { data: warehouseModalItems, isLoading: isWarehouseItemsLoading } = useAuthedSWR<RequestItem[]>(
+    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
+    token
+  );
   const { data: foremanRequestItems } = useAuthedSWR<RequestItem[]>(
     foremanExpandedRequestId ? `/requests/${foremanExpandedRequestId}/items` : null,
     token
@@ -116,6 +124,15 @@ export default function RequestsPage() {
     }
     return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
   }, [sortedAllRequests, inspectedAllRequestId]);
+  const warehouseActiveRequest = useMemo(() => {
+    if (!warehouseModalRequestId) {
+      return null;
+    }
+    // ค้นหา Request ที่ถูกเลือกจาก 'approvedRequests'
+    return (approvedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+  }, [approvedRequests, warehouseModalRequestId]);
+
+  const warehouseActiveItems = warehouseModalItems ?? [];
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 

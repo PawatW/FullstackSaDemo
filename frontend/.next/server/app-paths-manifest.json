@@ -1,10 +1,10 @@
 {
   "/page": "app/page.js",
-  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
   "/(dashboard)/requests/page": "app/(dashboard)/requests/page.js",
-  "/(dashboard)/orders/page": "app/(dashboard)/orders/page.js",
   "/(dashboard)/inventory/page": "app/(dashboard)/inventory/page.js",
-  "/(dashboard)/suppliers/page": "app/(dashboard)/suppliers/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/orders/page": "app/(dashboard)/orders/page.js",
   "/(dashboard)/customers/page": "app/(dashboard)/customers/page.js",
-  "/(dashboard)/stock/page": "app/(dashboard)/stock/page.js"
+  "/(dashboard)/stock/page": "app/(dashboard)/stock/page.js",
+  "/(dashboard)/suppliers/page": "app/(dashboard)/suppliers/page.js"
 }
