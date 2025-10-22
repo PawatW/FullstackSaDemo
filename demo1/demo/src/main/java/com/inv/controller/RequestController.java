@@ -4,15 +4,9 @@ import com.inv.model.Request;
 import com.inv.model.RequestItem;
 import com.inv.service.RequestService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-<<<<<<< HEAD
 import java.util.Map;
 import java.util.Collections;
-=======
-import org.springframework.web.server.ResponseStatusException;
-
->>>>>>> c1d03eb61a2cb5673853ee2c78d256f0c30e6327
 import java.security.Principal;
 import java.util.List;
 
@@ -32,16 +26,7 @@ public class RequestController {
     public Map<String, String> createRequest(@RequestBody RequestRequest reqRequest, Principal principal) { // return Map
         String staffId = principal.getName();
         reqRequest.getRequest().setStaffId(staffId);
-<<<<<<< HEAD
         String newRequestId = requestService.createRequest(reqRequest.getRequest(), reqRequest.getItems());
-=======
-        try {
-            return requestService.createRequest(reqRequest.getRequest(), reqRequest.getItems());
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        }
-    }
->>>>>>> c1d03eb61a2cb5673853ee2c78d256f0c30e6327
 
         // ส่งกลับเป็น Map เพื่อให้ Spring Boot แปลงเป็น JSON
         return Collections.singletonMap("requestId", newRequestId);

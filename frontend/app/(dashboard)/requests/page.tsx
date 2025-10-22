@@ -25,6 +25,9 @@ export default function RequestsPage() {
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
+  const [allRequestsSearch, setAllRequestsSearch] = useState('');
+  const [inspectedAllRequestId, setInspectedAllRequestId] = useState<string | null>(null);
+  const [isAllRequestModalOpen, setAllRequestModalOpen] = useState(false);
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
@@ -46,6 +49,11 @@ export default function RequestsPage() {
   const { data: warehouseRequestItems } = useAuthedSWR<RequestItem[]>(
     warehouseExpandedRequestId ? `/requests/${warehouseExpandedRequestId}/items` : null,
     token
+  );
+  const { data: allRequestItems } = useAuthedSWR<RequestItem[]>(
+    inspectedAllRequestId ? `/requests/${inspectedAllRequestId}/items` : null,
+    token,
+    { revalidateOnFocus: false }
   );
 
   const canCreate = role === 'TECHNICIAN' || role === 'ADMIN';
@@ -82,6 +90,33 @@ export default function RequestsPage() {
     return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
   }, [allRequests]);
 
+  const filteredAllRequests = useMemo(() => {
+    const query = allRequestsSearch.trim().toLowerCase();
+    if (!query) {
+      return sortedAllRequests;
+    }
+    return sortedAllRequests.filter((request) => {
+      const haystack = [
+        request.requestId,
+        request.orderId ?? '',
+        request.customerId ?? '',
+        request.staffId ?? '',
+        request.status ?? '',
+        request.description ?? ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sortedAllRequests, allRequestsSearch]);
+
+  const inspectedAllRequest = useMemo(() => {
+    if (!inspectedAllRequestId) {
+      return null;
+    }
+    return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
+  }, [sortedAllRequests, inspectedAllRequestId]);
+
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
   const orderItemByProductId = useMemo(() => {
@@ -113,6 +148,13 @@ export default function RequestsPage() {
       setWarehouseExpandedRequestId(null);
     }
   }, [warehouseExpandedRequestId, approvedRequests]);
+
+  useEffect(() => {
+    if (inspectedAllRequestId && !sortedAllRequests.some((request) => request.requestId === inspectedAllRequestId)) {
+      setInspectedAllRequestId(null);
+      setAllRequestModalOpen(false);
+    }
+  }, [inspectedAllRequestId, sortedAllRequests]);
 
   const updateDraftItem = (index: number, patch: Partial<DraftRequestItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
@@ -191,6 +233,16 @@ export default function RequestsPage() {
     setSelectedOrderId(orderId);
     setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
+  };
+
+  const handleAllRequestInspect = (requestId: string) => {
+    if (inspectedAllRequestId === requestId) {
+      setInspectedAllRequestId(null);
+      setAllRequestModalOpen(false);
+      return;
+    }
+    setInspectedAllRequestId(requestId);
+    setAllRequestModalOpen(true);
   };
 
   const handleCreateRequest = async (event: FormEvent<HTMLFormElement>) => {
@@ -338,6 +390,73 @@ export default function RequestsPage() {
         <h1 className="text-2xl font-semibold text-slate-900">Requests</h1>
         <p className="text-sm text-slate-500">ครอบคลุม Use Case Technician, Foreman และ Warehouse จาก RequestController และ StockController</p>
       </header>
+
+      <section className="card space-y-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Warehouse Use Case: เบิกของ</h2>
+          <p className="text-sm text-slate-500">อธิบายขั้นตอนการ Fulfill Request สำหรับบทบาท Warehouse ตามข้อมูลที่ทีมต้องการ</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <dl className="space-y-3">
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case name</dt>
+                <dd className="text-slate-800">เบิกของ</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case description</dt>
+                <dd className="text-slate-700">
+                  สร้างคำขอเบิกวัสดุ/อุปกรณ์ เลือกจำนวนที่ต้องการ และดำเนินการเบิกให้ลูกค้าตามคำขอที่ได้รับการอนุมัติ
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</dt>
+                <dd className="text-slate-700">Staff (role = Warehouse)</dd>
+              </div>
+            </dl>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preconditions</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
+              <li>ผู้ใช้ล็อกอินเป็น Staff ที่สถานะ Active</li>
+              <li>ระบบทราบบทบาทจากข้อมูล Staff.role</li>
+              <li>มีคำขอที่ได้รับการอนุมัติ (Approved) รอเบิก</li>
+              <li>สินค้าแต่ละรายการมีสต็อกคงเหลือเพียงพอ</li>
+              <li>ปริมาณที่เบิกไม่เกินจำนวนคงเหลือที่ระบบคำนวณไว้</li>
+            </ol>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Normal flow</h3>
+          <ol className="mt-3 space-y-3 text-sm text-slate-600">
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">1. เลือกเมนู Fulfill Request</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบแสดงฟอร์มเบิกของและโหลด Request ที่สถานะ Approved มาเตรียมไว้</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">2. ค้นหาคำขอที่ต้องการ</p>
+              <p className="mt-1 text-xs text-slate-500">ผู้ใช้พิมพ์ค้นหาด้วยรหัสคำขอ ลูกค้า หรือคำอธิบาย และระบบจะกรองรายการให้ตรงกับเงื่อนไข</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">3. เลือกคำขอที่ต้องการดำเนินการ</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบแสดงรายละเอียดรายการสินค้า (Request Item) และจำนวนที่ยังคงเหลือให้เบิก</p>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3 space-y-2">
+              <p className="font-semibold text-slate-700">4. ระบุจำนวนที่จะเบิก</p>
+              <p className="text-xs text-slate-500">ระบบตรวจสอบความถูกต้องของจำนวนที่ระบุ</p>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-slate-500">
+                <li>ต้องมากกว่า 0 และไม่เป็นค่าว่าง</li>
+                <li>ต้องไม่เกินจำนวนคงเหลือของรายการนั้น</li>
+                <li>ตรวจสอบสต็อกปัจจุบันของสินค้าอีกครั้งก่อนยืนยัน</li>
+              </ul>
+            </li>
+            <li className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="font-semibold text-slate-700">5. กดยืนยันการเบิก (Confirm Fulfillment)</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบบันทึกการเบิก อัปเดต Fulfilled Qty ของ Request Item และตัดสต็อกสินค้าทันที</p>
+            </li>
+          </ol>
+        </div>
+      </section>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
       {successMessage && (
@@ -850,32 +969,155 @@ export default function RequestsPage() {
       )}
 
       <section className="card space-y-4 p-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">รายการคำขอทั้งหมด</h2>
-          <p className="text-sm text-slate-500">ดึงจาก /requests และเรียงตามวันที่ล่าสุดก่อน</p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">รายการคำขอทั้งหมด</h2>
+            <p className="text-sm text-slate-500">ดึงจาก /requests และเรียงตามวันที่ล่าสุดก่อน</p>
+          </div>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+            <input
+              type="search"
+              value={allRequestsSearch}
+              onChange={(event) => setAllRequestsSearch(event.target.value)}
+              placeholder="ค้นหาด้วย Request ID Order ลูกค้า หรือคำอธิบาย"
+              className="w-full md:w-80"
+            />
+            <p className="text-xs text-slate-400">
+              แสดง {filteredAllRequests.length} จาก {sortedAllRequests.length} รายการ
+            </p>
+          </div>
         </div>
-        <div className="space-y-3">
-          {sortedAllRequests.map((request) => (
-            <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex flex-col gap-2 text-sm md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="font-semibold text-slate-800">{request.requestId}</p>
-                  <p className="text-xs text-slate-500">
-                    วันที่ {format(new Date(request.requestDate), 'dd MMM yyyy')} • Order: {request.orderId ?? '-'}
-                  </p>
-                </div>
-                <div className="text-xs">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">{request.status}</span>
-                </div>
-              </div>
-              {request.description && <p className="mt-3 text-sm text-slate-600">{request.description}</p>}
-            </div>
-          ))}
-          {sortedAllRequests.length === 0 && (
-            <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอ</p>
-          )}
+        <div className="overflow-hidden rounded-2xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Request ID</th>
+                <th className="px-4 py-3">วันที่</th>
+                <th className="px-4 py-3">Order</th>
+                <th className="px-4 py-3">ลูกค้า</th>
+                <th className="px-4 py-3">ผู้ร้องขอ</th>
+                <th className="px-4 py-3">สถานะ</th>
+                <th className="px-4 py-3">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {allRequests === undefined ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">
+                    กำลังโหลดข้อมูล...
+                  </td>
+                </tr>
+              ) : filteredAllRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                    {sortedAllRequests.length === 0 ? 'ยังไม่มีคำขอ' : 'ไม่พบคำขอตามคำค้นหา'}
+                  </td>
+                </tr>
+              ) : (
+                filteredAllRequests.map((request) => {
+                  const isSelected = inspectedAllRequestId === request.requestId;
+                  return (
+                    <tr
+                      key={request.requestId}
+                      className={`hover:bg-slate-50/60 ${isSelected ? 'bg-primary-50/60' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{request.requestId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{request.orderId ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{request.customerId ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{request.staffId ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-700">{request.status}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleAllRequestInspect(request.requestId)}
+                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                        >
+                          {isSelected ? 'ซ่อน' : 'ดูรายละเอียด'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
+
+      {isAllRequestModalOpen && inspectedAllRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียดคำขอ</h2>
+                  <p className="text-sm text-slate-500">
+                    {inspectedAllRequest.requestId} • วันที่ {format(new Date(inspectedAllRequest.requestDate), 'dd MMM yyyy HH:mm')} • สถานะ {inspectedAllRequest.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAllRequestModalOpen(false);
+                    setInspectedAllRequestId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+              <div className="mt-6 space-y-4 text-sm text-slate-600">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                  <div>
+                    <p className="font-semibold text-slate-600">Order</p>
+                    <p className="mt-1 text-slate-800">{inspectedAllRequest.orderId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ลูกค้า</p>
+                    <p className="mt-1 text-slate-800">{inspectedAllRequest.customerId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ผู้ร้องขอ</p>
+                    <p className="mt-1 text-slate-800">{inspectedAllRequest.staffId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ผู้อนุมัติ</p>
+                    <p className="mt-1 text-slate-800">{inspectedAllRequest.approvedBy ?? '-'}</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-500">รายละเอียดเพิ่มเติม</p>
+                  <p className="mt-2 text-sm text-slate-700">{inspectedAllRequest.description ?? 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+                  {allRequestItems ? (
+                    allRequestItems.length > 0 ? (
+                      <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                        {allRequestItems.map((item) => (
+                          <li key={item.requestItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+                            <span>
+                              {item.productId} • {item.quantity} ชิ้น
+                            </span>
+                            <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าในคำขอนี้</p>
+                    )
+                  ) : (
+                    <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
