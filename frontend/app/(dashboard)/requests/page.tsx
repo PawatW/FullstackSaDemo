@@ -366,6 +366,132 @@ export default function RequestsPage() {
         </section>
       )}
 
+      {canFulfill && isWarehouseModalOpen && warehouseModalRequestId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายการคำขอสำหรับเบิก</h2>
+                  {warehouseActiveRequest ? (
+                    <p className="text-sm text-slate-500">
+                      {warehouseActiveRequest.requestId} • Order {warehouseActiveRequest.orderId ?? '-'} • ลูกค้า {warehouseActiveRequest.customerId ?? '-'}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500">กำลังโหลดข้อมูลคำขอ...</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWarehouseModalOpen(false);
+                    setWarehouseModalRequestId(null);
+                    setFulfillQuantities({});
+                    setFulfilling({});
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-6 text-sm text-slate-700">
+                {warehouseActiveRequest && (
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                    <div>
+                      <p className="font-semibold text-slate-600">สถานะ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.status}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">วันที่ร้องขอ</p>
+                      <p className="mt-1 text-slate-800">{format(new Date(warehouseActiveRequest.requestDate), 'dd MMM yyyy HH:mm')}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">ผู้ร้องขอ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.staffId}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">ผู้อนุมัติ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.approvedBy ?? '-'}</p>
+                    </div>
+                    {warehouseActiveRequest.description && (
+                      <div className="md:col-span-2">
+                        <p className="font-semibold text-slate-600">รายละเอียด</p>
+                        <p className="mt-1 text-slate-700">{warehouseActiveRequest.description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">รายการสินค้า</h3>
+                  {isWarehouseItemsLoading ? (
+                    <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                  ) : warehouseActiveItems.length > 0 ? (
+                    <ul className="mt-3 space-y-3">
+                      {warehouseActiveItems.map((item) => {
+                        const maxQty = item.remainingQty;
+                        const storedQty = fulfillQuantities[item.requestItemId];
+                        const plannedQty = storedQty !== undefined ? storedQty : maxQty > 0 ? 1 : 0;
+                        const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
+                        const isProcessing = fulfilling[item.requestItemId];
+                        const disableActions = maxQty <= 0 || isProcessing;
+                        const buttonLabel = maxQty <= 0 ? 'เบิกครบแล้ว' : isProcessing ? 'กำลังบันทึก...' : 'บันทึกการเบิก';
+
+                        return (
+                          <li
+                            key={item.requestItemId}
+                            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div>
+                              <p className="font-medium text-slate-800">{item.productId}</p>
+                              <p className="text-xs text-slate-500">จำนวนที่ร้องขอ {item.quantity} • คงเหลือ {item.remainingQty}</p>
+                            </div>
+                            <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
+                              <input
+                                type="number"
+                                min={maxQty > 0 ? 1 : 0}
+                                max={maxQty > 0 ? maxQty : undefined}
+                                value={maxQty > 0 ? quantityForInput : 0}
+                                onChange={(event) => {
+                                  if (maxQty <= 0) {
+                                    return;
+                                  }
+                                  const nextValue = Number(event.target.value);
+                                  const sanitized = Number.isFinite(nextValue)
+                                    ? Math.min(maxQty, Math.max(1, Math.trunc(nextValue)))
+                                    : 1;
+                                  setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: sanitized }));
+                                }}
+                                disabled={maxQty <= 0 || isProcessing}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-32"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const quantityToFulfill = maxQty > 0 ? Math.max(1, Math.min(quantityForInput, maxQty)) : 0;
+                                  handleFulfill(item.requestItemId, quantityToFulfill);
+                                }}
+                                disabled={disableActions}
+                                className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                              >
+                                {buttonLabel}
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">ยังไม่มีรายการสินค้า</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {canCreate && isCreateModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
           <div className="flex min-h-full items-center justify-center p-4">
