@@ -20,7 +20,7 @@ export default function CustomersPage() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
-  const canCreate = ['ADMIN', 'SALES', 'TECHNICIAN', 'FOREMAN'].includes(role ?? '');
+  const canCreate = role === 'SALES';
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

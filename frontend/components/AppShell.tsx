@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/requests', label: 'Requests', roles: ['TECHNICIAN', 'FOREMAN', 'WAREHOUSE', 'ADMIN'] },
   { href: '/stock', label: 'Stock Ops', roles: ['WAREHOUSE', 'ADMIN'] },
   { href: '/customers', label: 'Customers', roles: ['SALES', 'TECHNICIAN', 'ADMIN'] },
-  { href: '/suppliers', label: 'Suppliers', roles: ['WAREHOUSE', 'ADMIN'] },
+  { href: '/suppliers', label: 'Suppliers', roles: ['WAREHOUSE', 'SALES', 'ADMIN'] },
   { href: '/admin/staff', label: 'Staff', roles: ['ADMIN'] }
 ];
 

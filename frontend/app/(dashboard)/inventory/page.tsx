@@ -5,19 +5,29 @@ import { useAuth } from '../../../components/AuthContext';
 import { useAuthedSWR } from '../../../lib/swr';
 import { apiFetch } from '../../../lib/api';
 import type { Product, Supplier } from '../../../lib/types';
+import { SearchableSelect, type SearchableOption } from '../../../components/SearchableSelect';
 
 export default function InventoryPage() {
   const { token, role } = useAuth();
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [adjusting, setAdjusting] = useState<Record<string, boolean>>({});
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
 
   const canManage = role === 'WAREHOUSE' || role === 'ADMIN';
   const { data: suppliers } = useAuthedSWR<Supplier[]>(canManage ? '/suppliers' : null, token);
   const { data: products, mutate, isLoading } = useAuthedSWR<Product[]>('/products', token, { refreshInterval: 30000 });
+
+  const supplierOptions = useMemo<SearchableOption[]>(() => {
+    return (suppliers ?? []).map((supplier) => ({
+      value: supplier.supplierId,
+      label: `${supplier.supplierName} (${supplier.supplierId})`,
+      description: supplier.phone ? `โทร: ${supplier.phone}` : supplier.email ? `อีเมล: ${supplier.email}` : undefined,
+      keywords: [supplier.supplierName, supplier.supplierId, supplier.phone ?? '', supplier.email ?? '', supplier.address ?? '']
+    }));
+  }, [suppliers]);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
@@ -80,6 +90,7 @@ export default function InventoryPage() {
       form.reset();
       setCreateModalOpen(false);
       setFormResetKey((prev) => prev + 1);
+      setSelectedSupplierId('');
       mutate();
       setSuccessMessage('เพิ่มสินค้าเรียบร้อย');
     } catch (err) {
@@ -87,30 +98,11 @@ export default function InventoryPage() {
     }
   };
 
-  const handleAdjust = async (productId: string, diff: number) => {
-    if (!token || !diff) return;
-    setAdjusting((prev) => ({ ...prev, [productId]: true }));
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      await apiFetch<void>(`/products/${productId}/adjust?diff=${diff}`, {
-        method: 'PUT',
-        token
-      });
-      mutate();
-      setSuccessMessage('ปรับสต็อกเรียบร้อย');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'ไม่สามารถปรับสต็อกได้');
-    } finally {
-      setAdjusting((prev) => ({ ...prev, [productId]: false }));
-    }
-  };
-
   return (
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
-        <p className="text-sm text-slate-500">ดึงข้อมูลจาก /products และรองรับการสร้างสินค้าใหม่ / ปรับสต็อกตาม Use Case</p>
+        <p className="text-sm text-slate-500">ดึงข้อมูลจาก /products และรองรับการสร้างสินค้าใหม่ตาม Use Case</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -134,6 +126,7 @@ export default function InventoryPage() {
                 onClick={() => {
                   setError(null);
                   setSuccessMessage(null);
+                  setSelectedSupplierId('');
                   setCreateModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                 }}
@@ -156,20 +149,19 @@ export default function InventoryPage() {
                 <th className="px-4 py-3">หน่วย</th>
                 <th className="px-4 py-3">Supplier</th>
                 <th className="px-4 py-3">ราคา/หน่วย</th>
-                {canManage && <th className="px-4 py-3 text-right">ปรับสต็อก</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {isLoading && (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-400">
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">
                     กำลังโหลดข้อมูล...
                   </td>
                 </tr>
               )}
               {!isLoading && filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-400">
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">
                     ไม่พบสินค้า
                   </td>
                 </tr>
@@ -189,51 +181,12 @@ export default function InventoryPage() {
                       ? Number(product.pricePerUnit).toLocaleString(undefined, { minimumFractionDigits: 2 })
                       : '-'}
                   </td>
-                  {canManage && (
-                    <td className="px-4 py-3 text-right text-xs">
-                      <div className="flex items-center justify-end gap-2">
-                        {[1, 5, 10].map((step) => (
-                          <button
-                            key={step}
-                            type="button"
-                            className="rounded-lg bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
-                            disabled={adjusting[product.productId]}
-                            onClick={() => handleAdjust(product.productId, step)}
-                          >
-                            +{step}
-                          </button>
-                        ))}
-                        {[1, 5, 10].map((step) => (
-                          <button
-                            key={`minus-${step}`}
-                            type="button"
-                            className="rounded-lg bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200"
-                            disabled={adjusting[product.productId]}
-                            onClick={() => handleAdjust(product.productId, -step)}
-                          >
-                            -{step}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {canManage && (
-        <section className="card space-y-4 p-6">
-          <h2 className="text-lg font-semibold text-slate-900">คำแนะนำจาก Use Case</h2>
-          <ul className="space-y-3 text-sm text-slate-600">
-            <li>• ใช้หน้าจอนี้เพื่อดูจำนวนสินค้าปัจจุบันก่อนการเบิก</li>
-            <li>• Warehouse สามารถกดปุ่มเพิ่ม/ลดเพื่อปรับยอดตามธุรกรรม Stock-In หรือ Fulfillment</li>
-            <li>• สำหรับ Stock-In พร้อมรายละเอียด supplier ให้ไปที่หน้า “Stock Ops”</li>
-          </ul>
-        </section>
-      )}
 
       {canManage && isCreateModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
@@ -245,12 +198,13 @@ export default function InventoryPage() {
                     <h2 className="text-lg font-semibold text-slate-900">เพิ่มสินค้าใหม่</h2>
                     <p className="text-sm text-slate-500">กรอกข้อมูลสินค้าเพื่อเรียกใช้งาน POST /products</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreateModalOpen(false);
-                      setFormResetKey((prev) => prev + 1);
-                    }}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    setSelectedSupplierId('');
+                    setFormResetKey((prev) => prev + 1);
+                  }}
                     className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
                   >
                     ปิด
@@ -280,17 +234,24 @@ export default function InventoryPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-slate-500">Supplier</label>
-                  {suppliers && suppliers.length > 0 ? (
-                    <select name="supplierId" defaultValue="" className="w-full">
-                      <option value="">เลือก Supplier (ไม่บังคับ)</option>
-                      {suppliers.map((supplier) => (
-                        <option key={supplier.supplierId} value={supplier.supplierId}>
-                          {supplier.supplierName} ({supplier.supplierId})
-                        </option>
-                      ))}
-                    </select>
+                  {supplierOptions.length > 0 ? (
+                    <SearchableSelect
+                      key={`supplier-${formResetKey}`}
+                      name="supplierId"
+                      value={selectedSupplierId}
+                      onChange={setSelectedSupplierId}
+                      options={[{ value: '', label: 'เลือก Supplier (ไม่บังคับ)' }, ...supplierOptions]}
+                      placeholder="เลือก Supplier (ไม่บังคับ)"
+                      searchPlaceholder="ค้นหา Supplier..."
+                      emptyMessage="ไม่พบ Supplier"
+                    />
                   ) : (
-                    <input name="supplierId" placeholder="เช่น SUP-001" />
+                    <input
+                      name="supplierId"
+                      placeholder="เช่น SUP-001"
+                      value={selectedSupplierId}
+                      onChange={(event) => setSelectedSupplierId(event.target.value)}
+                    />
                   )}
                 </div>
                 <div className="space-y-2">
@@ -299,12 +260,13 @@ export default function InventoryPage() {
                 </div>
               </div>
                 <div className="flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreateModalOpen(false);
-                      setFormResetKey((prev) => prev + 1);
-                    }}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    setSelectedSupplierId('');
+                    setFormResetKey((prev) => prev + 1);
+                  }}
                     className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
                   >
                     ยกเลิก

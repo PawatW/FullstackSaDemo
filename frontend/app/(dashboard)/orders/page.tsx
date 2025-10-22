@@ -6,6 +6,7 @@ import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
 import type { Customer, Order, OrderItem, Product } from '../../../lib/types';
+import { SearchableSelect, type SearchableOption } from '../../../components/SearchableSelect';
 
 interface DraftItem {
   productId: string;
@@ -16,7 +17,9 @@ export default function OrdersPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [inspectedOrderId, setInspectedOrderId] = useState<string | null>(null);
+  const [isOrderModalOpen, setOrderModalOpen] = useState(false);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1 }]);
   const [isSubmitting, setSubmitting] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -29,11 +32,20 @@ export default function OrdersPage() {
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Order[]>(role === 'SALES' || role === 'ADMIN' ? '/orders/ready-to-close' : null, token, {
     refreshInterval: 20000
   });
-  const { data: orderItems } = useAuthedSWR<OrderItem[]>(selectedOrder ? `/orders/${selectedOrder}/items` : null, token, {
+  const { data: orderItems } = useAuthedSWR<OrderItem[]>(inspectedOrderId ? `/orders/${inspectedOrderId}/items` : null, token, {
     revalidateOnFocus: false
   });
 
   const canCreate = role === 'SALES' || role === 'ADMIN';
+
+  const customerOptions = useMemo<SearchableOption[]>(() => {
+    return (customers ?? []).map((customer) => ({
+      value: customer.customerId,
+      label: `${customer.customerName} (${customer.customerId})`,
+      description: [customer.phone, customer.email].filter(Boolean).join(' • ') || undefined,
+      keywords: [customer.customerName, customer.customerId, customer.phone ?? '', customer.email ?? '', customer.address ?? '']
+    }));
+  }, [customers]);
 
   const productMap = useMemo(() => {
     const map = new Map<string, Product>();
@@ -42,6 +54,28 @@ export default function OrdersPage() {
     });
     return map;
   }, [products]);
+
+  const productOptions = useMemo<SearchableOption[]>(() => {
+    return (products ?? []).map((product) => ({
+      value: product.productId,
+      label: `${product.productName} (${product.productId})`,
+      description: [product.unit, product.supplierId ? `Supplier: ${product.supplierId}` : null]
+        .filter(Boolean)
+        .join(' • ') || undefined,
+      keywords: [
+        product.productName,
+        product.productId,
+        product.description ?? '',
+        product.unit ?? '',
+        product.supplierId ?? ''
+      ]
+    }));
+  }, [products]);
+
+  const inspectedOrder = useMemo(() => {
+    if (!inspectedOrderId) return null;
+    return (confirmedOrders ?? []).find((order) => order.orderId === inspectedOrderId) ?? null;
+  }, [confirmedOrders, inspectedOrderId]);
 
   const totalAmount = useMemo(() => {
     return draftItems.reduce((sum, item) => {
@@ -61,6 +95,7 @@ export default function OrdersPage() {
     setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
     setSubmitting(false);
+    setSelectedCustomerId('');
   };
 
   const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
@@ -72,9 +107,15 @@ export default function OrdersPage() {
     setSubmitting(true);
 
     const formData = new FormData(form);
-    const customerId = String(formData.get('customerId'));
+    const customerId = selectedCustomerId || String(formData.get('customerId') ?? '');
     const orderDate = String(formData.get('orderDate'));
     const status = 'Confirmed';
+
+    if (!customerId) {
+      setError('กรุณาเลือกลูกค้า');
+      setSubmitting(false);
+      return;
+    }
 
     const preparedItems = draftItems
       .filter((item) => item.productId && item.quantity > 0)
@@ -92,14 +133,14 @@ export default function OrdersPage() {
       });
 
     const payload = {
-      order: {
-        orderDate,
-        customerId,
-        status,
-        totalAmount: totalAmount // <-- แก้ไขบรรทัดนี้
-      },
-      items: preparedItems
-    };
+      order: {
+        orderDate,
+        customerId,
+        status,
+        totalAmount
+      },
+      items: preparedItems
+    };
 
     try {
       await apiFetch<string>('/orders', {
@@ -197,14 +238,20 @@ export default function OrdersPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-xs font-medium text-slate-500">ลูกค้า</label>
-                  <select name="customerId" required className="w-full">
-                    <option value="">เลือก Customer</option>
-                    {(customers ?? []).map((customer) => (
-                      <option key={customer.customerId} value={customer.customerId}>
-                        {customer.customerName} ({customer.customerId})
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    key={`customer-${formResetKey}`}
+                    name="customerId"
+                    value={selectedCustomerId}
+                    onChange={setSelectedCustomerId}
+                    options={[{ value: '', label: 'เลือก Customer' }, ...customerOptions]}
+                    placeholder="เลือก Customer"
+                    searchPlaceholder="ค้นหาลูกค้า..."
+                    emptyMessage="ไม่พบลูกค้า"
+                    disabled={customerOptions.length === 0}
+                  />
+                  {customerOptions.length === 0 && (
+                    <p className="text-xs text-rose-500">ยังไม่มีข้อมูลลูกค้า โปรดเพิ่มในเมนู Customers</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
@@ -215,7 +262,12 @@ export default function OrdersPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
-                  <button type="button" onClick={addDraftRow} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+                  <button
+                    type="button"
+                    onClick={addDraftRow}
+                    disabled={productOptions.length === 0}
+                    className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
                     เพิ่มรายการ
                   </button>
                 </div>
@@ -229,24 +281,27 @@ export default function OrdersPage() {
                         key={`${formResetKey}-${index}`}
                         className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-5"
                       >
-                        <select
+                        <SearchableSelect
                           value={item.productId}
-                          onChange={(event) => handleDraftChange(index, { productId: event.target.value })}
+                          onChange={(nextProductId) => {
+                            const safeQuantity = nextProductId ? Math.max(1, item.quantity || 1) : 0;
+                            handleDraftChange(index, { productId: nextProductId, quantity: safeQuantity });
+                          }}
+                          options={[{ value: '', label: 'เลือกสินค้า' }, ...productOptions]}
+                          placeholder="เลือกสินค้า"
+                          searchPlaceholder="ค้นหาสินค้า..."
+                          emptyMessage="ไม่พบสินค้า"
+                          disabled={productOptions.length === 0}
                           className="md:col-span-2"
-                        >
-                          <option value="">เลือกสินค้า</option>
-                          {(products ?? []).map((productOption) => (
-                            <option key={productOption.productId} value={productOption.productId}>
-                              {productOption.productName} ({productOption.productId})
-                            </option>
-                          ))}
-                        </select>
+                        />
                         <input
                           type="number"
                           min={1}
-                          value={item.quantity}
+                          value={item.productId ? item.quantity : 1}
+                          disabled={!item.productId}
                           onChange={(event) => {
-                            const nextQuantity = Math.max(1, Number(event.target.value) || 0);
+                            const rawValue = Number(event.target.value);
+                            const nextQuantity = Math.max(1, Number.isFinite(rawValue) ? rawValue : 1);
                             handleDraftChange(index, { quantity: nextQuantity });
                           }}
                         />
@@ -311,8 +366,16 @@ export default function OrdersPage() {
             <button
               key={order.orderId}
               type="button"
-              onClick={() => setSelectedOrder(order.orderId)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${selectedOrder === order.orderId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'}`}
+              onClick={() => {
+                if (role === 'TECHNICIAN') {
+                  setInspectedOrderId(order.orderId);
+                  setOrderModalOpen(true);
+                } else {
+                  setOrderModalOpen(false);
+                  setInspectedOrderId((prev) => (prev === order.orderId ? null : order.orderId));
+                }
+              }}
+              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${inspectedOrderId === order.orderId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'}`}
             >
               <div className="flex items-center justify-between text-sm">
                 <div>
@@ -325,9 +388,9 @@ export default function OrdersPage() {
           ))}
           {(confirmedOrders?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มี Order ที่ยืนยัน</p>}
         </div>
-        {selectedOrder && orderItems && (
+        {role !== 'TECHNICIAN' && inspectedOrderId && orderItems && (
           <div className="rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">รายการสินค้าใน {selectedOrder}</h3>
+            <h3 className="text-sm font-semibold text-slate-800">รายการสินค้าใน {inspectedOrderId}</h3>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {orderItems.map((item) => (
                 <li key={item.orderItemId} className="flex justify-between">
@@ -341,6 +404,68 @@ export default function OrdersPage() {
           </div>
         )}
       </section>
+
+      {role === 'TECHNICIAN' && isOrderModalOpen && inspectedOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียด Order</h2>
+                  {inspectedOrder ? (
+                    <p className="text-sm text-slate-500">
+                      {inspectedOrder.orderId} • ลูกค้า {inspectedOrder.customerId} • วันที่{' '}
+                      {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500">กำลังโหลดข้อมูล Order...</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderModalOpen(false);
+                    setInspectedOrderId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+              <div className="mt-6 space-y-4">
+                {orderItems ? (
+                  orderItems.length > 0 ? (
+                    <div className="space-y-3">
+                      {orderItems.map((item) => (
+                        <div key={item.orderItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                          <div>
+                            <p className="font-medium text-slate-800">{item.productId}</p>
+                            <p className="text-xs text-slate-500">จำนวน {item.quantity} • คงเหลือ {item.remainingQty}</p>
+                          </div>
+                          <span className="text-xs text-slate-500">ราคา/หน่วย ฿{item.unitPrice.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าใน Order นี้</p>
+                  )
+                ) : (
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                )}
+                {inspectedOrder && (
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600">ยอดรวม</span>
+                      <span className="font-semibold text-slate-800">฿{Number(inspectedOrder.totalAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">สถานะปัจจุบัน: {inspectedOrder.status}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(role === 'SALES' || role === 'ADMIN') && (
         <section className="card space-y-4 p-6">
