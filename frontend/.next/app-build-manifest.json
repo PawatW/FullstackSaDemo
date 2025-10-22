@@ -36,6 +36,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(dashboard)/requests/page.js"
     ],
+    "/(dashboard)/stock/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/stock/page.js"
+    ],
     "/(dashboard)/suppliers/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -45,11 +50,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(dashboard)/customers/page.js"
-    ],
-    "/(dashboard)/stock/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/stock/page.js"
     ]
   }
 }
