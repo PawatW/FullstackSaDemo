@@ -22,15 +22,14 @@ export default function RequestsPage() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
+  const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [allRequestsSearch, setAllRequestsSearch] = useState('');
   const [inspectedAllRequestId, setInspectedAllRequestId] = useState<string | null>(null);
   const [isAllRequestModalOpen, setAllRequestModalOpen] = useState(false);
-  const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
-  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string>('');
-  const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products, mutate: mutateProducts } = useAuthedSWR<Product[]>('/products', token);
@@ -45,6 +44,12 @@ export default function RequestsPage() {
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
   });
+ 
+  // ดึงข้อมูลสำหรับ Warehouse Modal
+  const { data: warehouseModalItems, isLoading: isWarehouseItemsLoading } = useAuthedSWR<RequestItem[]>(
+    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
+    token
+  );
   const { data: foremanRequestItems } = useAuthedSWR<RequestItem[]>(
     foremanExpandedRequestId ? `/requests/${foremanExpandedRequestId}/items` : null,
     token
@@ -52,11 +57,6 @@ export default function RequestsPage() {
   const { data: warehouseRequestItems } = useAuthedSWR<RequestItem[]>(
     warehouseExpandedRequestId ? `/requests/${warehouseExpandedRequestId}/items` : null,
     token
-  );
-  const { data: warehouseModalItems } = useAuthedSWR<RequestItem[]>(
-    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
-    token,
-    { refreshInterval: 15000 }
   );
   const { data: allRequestItems } = useAuthedSWR<RequestItem[]>(
     inspectedAllRequestId ? `/requests/${inspectedAllRequestId}/items` : null,
@@ -149,6 +149,15 @@ export default function RequestsPage() {
     }
     return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
   }, [sortedAllRequests, inspectedAllRequestId]);
+  const warehouseActiveRequest = useMemo(() => {
+    if (!warehouseModalRequestId) {
+      return null;
+    }
+    // ค้นหา Request ที่ถูกเลือกจาก 'approvedRequests'
+    return (approvedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+  }, [approvedRequests, warehouseModalRequestId]);
+
+  const warehouseActiveItems = warehouseModalItems ?? [];
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
@@ -208,63 +217,6 @@ export default function RequestsPage() {
       setAllRequestModalOpen(false);
     }
   }, [inspectedAllRequestId, sortedAllRequests]);
-
-  useEffect(() => {
-    if (!isWarehouseModalOpen) {
-      return;
-    }
-    if (filteredWarehouseRequests.length === 0) {
-      if (warehouseModalRequestId) {
-        setWarehouseModalRequestId('');
-      }
-      return;
-    }
-    const stillVisible = filteredWarehouseRequests.some((request) => request.requestId === warehouseModalRequestId);
-    if (!stillVisible) {
-      setWarehouseModalRequestId(filteredWarehouseRequests[0].requestId);
-    }
-  }, [filteredWarehouseRequests, isWarehouseModalOpen, warehouseModalRequestId]);
-
-  useEffect(() => {
-    setFulfillQuantities({});
-    setFulfilling({});
-  }, [warehouseModalRequestId]);
-
-  useEffect(() => {
-    if (!isWarehouseModalOpen || !warehouseModalRequestId || !warehouseModalItems) {
-      return;
-    }
-    setFulfillQuantities((prev) => {
-      const next: Record<string, number> = { ...prev };
-      let mutated = false;
-      const activeIds = new Set<string>();
-      warehouseActiveItems.forEach((item) => {
-        activeIds.add(item.requestItemId);
-        const product = productById.get(item.productId);
-        const stockAvailable = product?.quantity ?? 0;
-        const maxAllowed = Math.min(item.remainingQty, stockAvailable);
-        const defaultQty = maxAllowed > 0 ? maxAllowed : 0;
-        const current = next[item.requestItemId];
-        if (current === undefined) {
-          next[item.requestItemId] = defaultQty;
-          mutated = true;
-          return;
-        }
-        const sanitized = maxAllowed > 0 ? Math.min(maxAllowed, Math.max(1, Math.trunc(current))) : 0;
-        if (sanitized !== current) {
-          next[item.requestItemId] = sanitized;
-          mutated = true;
-        }
-      });
-      Object.keys(next).forEach((key) => {
-        if (!activeIds.has(key)) {
-          delete next[key];
-          mutated = true;
-        }
-      });
-      return mutated ? next : prev;
-    });
-  }, [isWarehouseModalOpen, warehouseActiveItems, warehouseModalItems, warehouseModalRequestId, productById]);
 
   const updateDraftItem = (index: number, patch: Partial<DraftRequestItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
