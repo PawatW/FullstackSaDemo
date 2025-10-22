@@ -13,16 +13,20 @@ interface DraftRequestItem {
 }
 
 export default function RequestsPage() {
-  const { role, token } = useAuth();
+  const { role, token, staffId } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
+  const [inspectedRequestId, setInspectedRequestId] = useState<string | null>(null);
+  const [isTechnicianModalOpen, setTechnicianModalOpen] = useState(false);
+  const [foremanExpandedRequestId, setForemanExpandedRequestId] = useState<string | null>(null);
   const [draftItems, setDraftItems] = useState<DraftRequestItem[]>([{ productId: '', quantity: 1 }]);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [pendingSearch, setPendingSearch] = useState('');
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
@@ -37,11 +41,90 @@ export default function RequestsPage() {
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
   });
-  const { data: requestItems } = useAuthedSWR<RequestItem[]>(selectedRequestId ? `/requests/${selectedRequestId}/items` : null, token);
+  const { data: foremanRequestItems } = useAuthedSWR<RequestItem[]>(
+    foremanExpandedRequestId ? `/requests/${foremanExpandedRequestId}/items` : null,
+    token
+  );
+  const { data: warehouseRequestItems } = useAuthedSWR<RequestItem[]>(
+    warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
+    token
+  );
+  const { data: technicianRequestItems } = useAuthedSWR<RequestItem[]>(
+    inspectedRequestId ? `/requests/${inspectedRequestId}/items` : null,
+    token,
+    {
+      revalidateOnFocus: false
+    }
+  );
 
   const canCreate = role === 'TECHNICIAN' || role === 'ADMIN';
   const canApprove = role === 'FOREMAN' || role === 'ADMIN';
   const canFulfill = role === 'WAREHOUSE' || role === 'ADMIN';
+
+  const isWarehouseModalOpen = warehouseModalRequestId !== null;
+
+  const sortedPendingRequests = useMemo(() => {
+    const data = pendingRequests ?? [];
+    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+  }, [pendingRequests]);
+
+  const filteredPendingRequests = useMemo(() => {
+    const query = pendingSearch.trim().toLowerCase();
+    if (!query) {
+      return sortedPendingRequests;
+    }
+    return sortedPendingRequests.filter((request) => {
+      const haystack = [
+        request.requestId,
+        request.orderId ?? '',
+        request.customerId ?? '',
+        request.staffId ?? '',
+        request.status ?? '',
+        request.description ?? ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sortedPendingRequests, pendingSearch]);
+
+  const sortedAllRequests = useMemo(() => {
+    const data = allRequests ?? [];
+    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+  }, [allRequests]);
+
+  const technicianRequests = useMemo(() => {
+    if (role !== 'TECHNICIAN') {
+      return [] as Request[];
+    }
+    if (!staffId) {
+      return sortedAllRequests;
+    }
+    return sortedAllRequests.filter((request) => request.staffId === staffId);
+  }, [role, staffId, sortedAllRequests]);
+
+  const inspectedRequest = useMemo(() => {
+    if (!inspectedRequestId) {
+      return null;
+    }
+    return sortedAllRequests.find((request) => request.requestId === inspectedRequestId) ?? null;
+  }, [sortedAllRequests, inspectedRequestId]);
+
+  const warehouseActiveRequest = useMemo(() => {
+    if (!warehouseModalRequestId) {
+      return null;
+    }
+    return (approvedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+  }, [approvedRequests, warehouseModalRequestId]);
+
+  const warehouseActiveItems = useMemo(() => {
+    if (!warehouseModalRequestId) {
+      return [];
+    }
+    return (warehouseRequestItems ?? []).filter((item) => item.requestId === warehouseModalRequestId);
+  }, [warehouseModalRequestId, warehouseRequestItems]);
+
+  const isWarehouseItemsLoading = isWarehouseModalOpen && warehouseModalRequestId !== null && !warehouseRequestItems;
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
@@ -58,7 +141,29 @@ export default function RequestsPage() {
   useEffect(() => {
     setFulfillQuantities({});
     setFulfilling({});
-  }, [selectedRequestId]);
+  }, [warehouseModalRequestId]);
+
+  useEffect(() => {
+    if (foremanExpandedRequestId && !(pendingRequests ?? []).some((request) => request.requestId === foremanExpandedRequestId)) {
+      setForemanExpandedRequestId(null);
+    }
+  }, [foremanExpandedRequestId, pendingRequests]);
+
+  useEffect(() => {
+    if (
+      warehouseModalRequestId &&
+      !(approvedRequests ?? []).some((request) => request.requestId === warehouseModalRequestId)
+    ) {
+      setWarehouseModalRequestId(null);
+    }
+  }, [warehouseModalRequestId, approvedRequests]);
+
+  useEffect(() => {
+    if (inspectedRequestId && !(sortedAllRequests ?? []).some((request) => request.requestId === inspectedRequestId)) {
+      setTechnicianModalOpen(false);
+      setInspectedRequestId(null);
+    }
+  }, [inspectedRequestId, sortedAllRequests]);
 
   const updateDraftItem = (index: number, patch: Partial<DraftRequestItem>) => {
     setDraftItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
@@ -225,6 +330,7 @@ export default function RequestsPage() {
       });
       mutatePending();
       mutateApproved();
+      setForemanExpandedRequestId((current) => (current === requestId ? null : current));
       setSuccessMessage(action === 'approve' ? 'อนุมัติคำขอเรียบร้อย' : 'ปฏิเสธคำขอเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถอัปเดตสถานะได้');
@@ -309,6 +415,131 @@ export default function RequestsPage() {
             </button>
           </div>
         </section>
+      )}
+
+      {canFulfill && isWarehouseModalOpen && warehouseModalRequestId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายการคำขอสำหรับเบิก</h2>
+                  {warehouseActiveRequest ? (
+                    <p className="text-sm text-slate-500">
+                      {warehouseActiveRequest.requestId} • Order {warehouseActiveRequest.orderId ?? '-'} • ลูกค้า {warehouseActiveRequest.customerId ?? '-'}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500">กำลังโหลดข้อมูลคำขอ...</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWarehouseModalRequestId(null);
+                    setFulfillQuantities({});
+                    setFulfilling({});
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-6 text-sm text-slate-700">
+                {warehouseActiveRequest && (
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                    <div>
+                      <p className="font-semibold text-slate-600">สถานะ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.status}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">วันที่ร้องขอ</p>
+                      <p className="mt-1 text-slate-800">{format(new Date(warehouseActiveRequest.requestDate), 'dd MMM yyyy HH:mm')}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">ผู้ร้องขอ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.staffId}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-600">ผู้อนุมัติ</p>
+                      <p className="mt-1 text-slate-800">{warehouseActiveRequest.approvedBy ?? '-'}</p>
+                    </div>
+                    {warehouseActiveRequest.description && (
+                      <div className="md:col-span-2">
+                        <p className="font-semibold text-slate-600">รายละเอียด</p>
+                        <p className="mt-1 text-slate-700">{warehouseActiveRequest.description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">รายการสินค้า</h3>
+                  {isWarehouseItemsLoading ? (
+                    <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                  ) : warehouseActiveItems.length > 0 ? (
+                    <ul className="mt-3 space-y-3">
+                      {warehouseActiveItems.map((item) => {
+                        const maxQty = item.remainingQty;
+                        const storedQty = fulfillQuantities[item.requestItemId];
+                        const plannedQty = storedQty !== undefined ? storedQty : maxQty > 0 ? 1 : 0;
+                        const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
+                        const isProcessing = fulfilling[item.requestItemId];
+                        const disableActions = maxQty <= 0 || isProcessing;
+                        const buttonLabel = maxQty <= 0 ? 'เบิกครบแล้ว' : isProcessing ? 'กำลังบันทึก...' : 'บันทึกการเบิก';
+
+                        return (
+                          <li
+                            key={item.requestItemId}
+                            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div>
+                              <p className="font-medium text-slate-800">{item.productId}</p>
+                              <p className="text-xs text-slate-500">จำนวนที่ร้องขอ {item.quantity} • คงเหลือ {item.remainingQty}</p>
+                            </div>
+                            <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
+                              <input
+                                type="number"
+                                min={maxQty > 0 ? 1 : 0}
+                                max={maxQty > 0 ? maxQty : undefined}
+                                value={maxQty > 0 ? quantityForInput : 0}
+                                onChange={(event) => {
+                                  if (maxQty <= 0) {
+                                    return;
+                                  }
+                                  const nextValue = Number(event.target.value);
+                                  const sanitized = Number.isFinite(nextValue)
+                                    ? Math.min(maxQty, Math.max(1, Math.trunc(nextValue)))
+                                    : 1;
+                                  setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: sanitized }));
+                                }}
+                                disabled={maxQty <= 0 || isProcessing}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-32"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const quantityToFulfill = maxQty > 0 ? Math.max(1, Math.min(quantityForInput, maxQty)) : 0;
+                                  handleFulfill(item.requestItemId, quantityToFulfill);
+                                }}
+                                disabled={disableActions}
+                                className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                              >
+                                {buttonLabel}
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">ยังไม่มีรายการสินค้า</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {canCreate && isCreateModalOpen && (
@@ -461,36 +692,226 @@ export default function RequestsPage() {
 
       {canApprove && (
         <section className="card space-y-4 p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Foreman: รออนุมัติ</h2>
-              <p className="text-sm text-slate-500">ใช้งาน /requests/pending และ PUT approve / reject</p>
+              <p className="text-sm text-slate-500">แสดงรายการจาก /requests/pending และกดเพื่อดูรายละเอียดก่อนอนุมัติ</p>
             </div>
+            <input
+              type="search"
+              value={pendingSearch}
+              onChange={(event) => setPendingSearch(event.target.value)}
+              placeholder="ค้นหา Request..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 md:w-64"
+            />
           </div>
           <div className="space-y-3">
-            {(pendingRequests ?? []).map((request) => (
-              <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-semibold text-slate-800">{request.requestId}</p>
-                    <p className="text-xs text-slate-500">Order: {request.orderId} • ขอโดย {request.staffId}</p>
-                  </div>
-                  <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy')}</span>
-                </div>
-                {request.description && <p className="mt-3 text-sm text-slate-600">{request.description}</p>}
-                <div className="mt-4 flex gap-3">
-                  <button onClick={() => handleApprove(request.requestId, 'approve')} className="flex-1 bg-emerald-500 py-2 text-xs font-semibold text-white">
-                    อนุมัติ
+            {filteredPendingRequests.map((request) => {
+              const isExpanded = foremanExpandedRequestId === request.requestId;
+              const itemsForRequest = (foremanRequestItems ?? []).filter(
+                (item) => item.requestId === request.requestId
+              );
+              const isLoadingItems = isExpanded && !foremanRequestItems;
+              return (
+                <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setForemanExpandedRequestId(isExpanded ? null : request.requestId)}
+                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition ${
+                      isExpanded ? 'border-b border-slate-200 bg-slate-50' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-800">{request.requestId}</p>
+                      <p className="text-xs text-slate-500">Order: {request.orderId || '-'} • ขอโดย {request.staffId}</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy')}</span>
                   </button>
-                  <button onClick={() => handleApprove(request.requestId, 'reject')} className="flex-1 bg-rose-500 py-2 text-xs font-semibold text-white">
-                    ปฏิเสธ
-                  </button>
+                  {isExpanded && (
+                    <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
+                      {request.description && <p className="text-slate-600">{request.description}</p>}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+                        {isLoadingItems ? (
+                          <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                        ) : itemsForRequest.length > 0 ? (
+                            <ul className="mt-2 space-y-2">
+                              {itemsForRequest.map((item) => (
+                                <li key={item.requestItemId} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                                  <span>
+                                    {item.productId} • {item.quantity} ชิ้น
+                                  </span>
+                                  <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
+                                </li>
+                              ))}
+                            </ul>
+                        ) : (
+                          <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">ยังไม่มีรายการสินค้า</p>
+                        )}
+                      </div>
+                      <div className="flex gap-3 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(request.requestId, 'approve')}
+                          className="flex-1 rounded-xl bg-emerald-500 py-2 font-semibold text-white hover:bg-emerald-600"
+                        >
+                          อนุมัติ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(request.requestId, 'reject')}
+                          className="flex-1 rounded-xl bg-rose-500 py-2 font-semibold text-white hover:bg-rose-600"
+                        >
+                          ปฏิเสธ
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-            {(pendingRequests?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ไม่มีคำขอรออนุมัติ</p>}
+              );
+            })}
+            {filteredPendingRequests.length === 0 && (
+              <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
+                {pendingRequests && pendingRequests.length > 0 ? 'ไม่พบคำขอตามคำค้นหา' : 'ไม่มีคำขอรออนุมัติ'}
+              </p>
+            )}
           </div>
         </section>
+      )}
+
+      {role === 'TECHNICIAN' && (
+        <section className="card space-y-4 p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Technician: คำขอของฉัน</h2>
+            <p className="text-sm text-slate-500">ดึงจาก /requests และสามารถเปิดดูรายละเอียดได้</p>
+          </div>
+          <div className="space-y-3">
+            {allRequests === undefined ? (
+              <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">กำลังโหลดคำขอ...</p>
+            ) : technicianRequests.length > 0 ? (
+              technicianRequests.map((request) => (
+                <button
+                  key={request.requestId}
+                  type="button"
+                  onClick={() => {
+                    setInspectedRequestId(request.requestId);
+                    setTechnicianModalOpen(true);
+                  }}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    inspectedRequestId === request.requestId
+                      ? 'border-primary-300 bg-primary-50'
+                      : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-semibold text-slate-800">{request.requestId}</p>
+                      <p className="text-xs text-slate-500">
+                        Order: {request.orderId ?? '-'} • สถานะ: {request.status}
+                      </p>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {format(new Date(request.requestDate), 'dd MMM yyyy')}
+                    </span>
+                  </div>
+                  {request.description && (
+                    <p className="mt-2 text-xs text-slate-500">{request.description}</p>
+                  )}
+                </button>
+              ))
+            ) : (
+              <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอที่คุณสร้าง</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {role === 'TECHNICIAN' && isTechnicianModalOpen && inspectedRequestId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียดคำขอเบิก</h2>
+                  {inspectedRequest ? (
+                    <div className="space-y-1 text-sm text-slate-500">
+                      <p>
+                        {inspectedRequest.requestId} • Order {inspectedRequest.orderId ?? '-'} • ลูกค้า {inspectedRequest.customerId ?? '-'}
+                      </p>
+                      <p>
+                        วันที่ {format(new Date(inspectedRequest.requestDate), 'dd MMM yyyy HH:mm')} • สถานะ {inspectedRequest.status}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">กำลังโหลดข้อมูลคำขอ...</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTechnicianModalOpen(false);
+                    setInspectedRequestId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {inspectedRequest?.description && (
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">{inspectedRequest.description}</p>
+                )}
+
+                {technicianRequestItems ? (
+                  technicianRequestItems.length > 0 ? (
+                    <div className="space-y-3">
+                      {technicianRequestItems.map((item) => (
+                        <div
+                          key={item.requestItemId}
+                          className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-800">{item.productId}</p>
+                            <p className="text-xs text-slate-500">
+                              จำนวน {item.quantity} • คงเหลือ {item.remainingQty}
+                            </p>
+                          </div>
+                          <span className="text-xs text-slate-500">เบิกแล้ว {item.fulfilledQty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าในคำขอนี้</p>
+                  )
+                ) : (
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                )}
+
+                {inspectedRequest && (
+                  <div className="grid gap-3 rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600 md:grid-cols-2">
+                    <div>
+                      <p className="font-semibold text-slate-700">ผู้ร้องขอ</p>
+                      <p className="mt-1 text-slate-800">{inspectedRequest.staffId}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-700">อนุมัติโดย</p>
+                      <p className="mt-1 text-slate-800">{inspectedRequest.approvedBy ?? '-'}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-700">วันที่อนุมัติ</p>
+                      <p className="mt-1 text-slate-800">
+                        {inspectedRequest.approvedDate
+                          ? format(new Date(inspectedRequest.approvedDate), 'dd MMM yyyy HH:mm')
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {canFulfill && (
@@ -500,72 +921,39 @@ export default function RequestsPage() {
             <p className="text-sm text-slate-500">ดึงจาก /stock/approved-requests และ POST /stock/fulfill</p>
           </div>
           <div className="space-y-4">
-            {(approvedRequests ?? []).map((request) => (
-              <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-semibold text-slate-800">{request.requestId}</p>
-                    <p className="text-xs text-slate-500">Order: {request.orderId} • ลูกค้า {request.customerId}</p>
+            {(approvedRequests ?? []).map((request) => {
+              const isActive = isWarehouseModalOpen && warehouseModalRequestId === request.requestId;
+              return (
+                <div
+                  key={request.requestId}
+                  className={`rounded-2xl border bg-white p-4 transition ${
+                    isActive ? 'border-primary-200 bg-primary-50/40' : 'border-slate-200'
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 text-sm md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-800">{request.requestId}</p>
+                      <p className="text-xs text-slate-500">Order: {request.orderId} • ลูกค้า {request.customerId}</p>
+                      {request.description && (
+                        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">{request.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs md:flex-col md:items-end md:gap-3">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">{request.status}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWarehouseModalRequestId(request.requestId);
+                        }}
+                        className="rounded-xl bg-primary-600 px-4 py-2 font-semibold text-white"
+                      >
+                        ดูรายละเอียด
+                      </button>
+                    </div>
                   </div>
-                  <button onClick={() => setSelectedRequestId(request.requestId)} className="text-xs text-primary-600">
-                    ดูรายการ
-                  </button>
                 </div>
-                {selectedRequestId === request.requestId && requestItems && (
-                  <ul className="mt-3 space-y-3 text-sm text-slate-600">
-                    {requestItems.map((item) => {
-                      const maxQty = item.remainingQty;
-                      const storedQty = fulfillQuantities[item.requestItemId];
-                      const plannedQty = storedQty !== undefined ? storedQty : maxQty > 0 ? 1 : 0;
-                      const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
-                      const isProcessing = fulfilling[item.requestItemId];
-                      const disableActions = maxQty <= 0 || isProcessing;
-                      const buttonLabel = maxQty <= 0 ? 'เบิกครบแล้ว' : isProcessing ? 'กำลังบันทึก...' : 'บันทึกการเบิก';
-
-                      return (
-                        <li key={item.requestItemId} className="flex flex-col gap-3 rounded-xl bg-slate-50 px-3 py-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <p className="font-medium text-slate-700">{item.productId}</p>
-                            <p className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</p>
-                          </div>
-                          <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
-                            <input
-                              type="number"
-                              min={maxQty > 0 ? 1 : 0}
-                              max={maxQty > 0 ? maxQty : undefined}
-                              value={maxQty > 0 ? quantityForInput : 0}
-                              onChange={(event) => {
-                                if (maxQty <= 0) {
-                                  return;
-                                }
-                                const nextValue = Number(event.target.value);
-                                const sanitized = Number.isFinite(nextValue)
-                                  ? Math.min(maxQty, Math.max(1, Math.trunc(nextValue)))
-                                  : 1;
-                                setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: sanitized }));
-                              }}
-                              disabled={maxQty <= 0 || isProcessing}
-                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-28"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const quantityToFulfill = maxQty > 0 ? Math.max(1, Math.min(quantityForInput, maxQty)) : 0;
-                                handleFulfill(item.requestItemId, quantityToFulfill);
-                              }}
-                              disabled={disableActions}
-                              className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                            >
-                              {buttonLabel}
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            ))}
+              );
+            })}
             {(approvedRequests?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอที่อนุมัติ</p>}
           </div>
         </section>
@@ -598,7 +986,7 @@ export default function RequestsPage() {
           <p className="text-sm text-slate-500">ดึงจาก /requests และเรียงตามวันที่ล่าสุดก่อน</p>
         </div>
         <div className="space-y-3">
-          {(allRequests ?? []).map((request) => (
+          {sortedAllRequests.map((request) => (
             <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex flex-col gap-2 text-sm md:flex-row md:items-start md:justify-between">
                 <div>
@@ -614,7 +1002,7 @@ export default function RequestsPage() {
               {request.description && <p className="mt-3 text-sm text-slate-600">{request.description}</p>}
             </div>
           ))}
-          {(allRequests?.length ?? 0) === 0 && (
+          {sortedAllRequests.length === 0 && (
             <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอ</p>
           )}
         </div>
