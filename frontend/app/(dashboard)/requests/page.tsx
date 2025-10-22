@@ -229,6 +229,7 @@ export default function RequestsPage() {
     setSelectedOrderId('');
     setDraftItems([{ productId: '', quantity: 1 }]);
     setFormResetKey((prev) => prev + 1);
+    setCreateOrderSearch('');
   };
 
   const productOptions = useMemo(() => {
@@ -811,125 +812,142 @@ export default function RequestsPage() {
                   </button>
                 </div>
                 <form key={formResetKey} onSubmit={handleCreateRequest} className="mt-6 space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
-                  <select
-                    name="orderId"
-                    required
-                    value={selectedOrderId}
-                    onChange={(event) => handleOrderSelection(event.target.value)}
-                  >
-                    <option value="">เลือก Order</option>
-                    {(confirmedOrders ?? []).map((order) => (
-                      <option key={order.orderId} value={order.orderId}>
-                        {order.orderId} • ลูกค้า {order.customerId}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
-                  <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
-                  <textarea name="description" rows={3} placeholder="ระบุหน้างานหรือหมายเหตุ" />
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
-                  <button
-                    type="button"
-                    onClick={addDraftRow}
-                    disabled={!selectedOrderId || productOptions.length === 0}
-                    className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                  >
-                    เพิ่มสินค้า
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {draftItems.map((item, index) => {
-                    const orderItem = item.productId ? orderItemByProductId.get(item.productId) : undefined;
-                    const available = orderItem?.remainingQty ?? 0;
-                    const isOutOfStock = item.productId ? available <= 0 : false;
-                    const quantityValue = isOutOfStock ? 0 : item.quantity;
-
-                    return (
-                      <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
-                        <div className="md:col-span-2">
-                          <select
-                            value={item.productId}
-                            onChange={(event) => {
-                              const nextProductId = event.target.value;
-                              const nextOrderItem = orderItemByProductId.get(nextProductId);
-                              const initialQuantity = nextOrderItem && nextOrderItem.remainingQty > 0 ? 1 : 0;
-                              updateDraftItem(index, { productId: nextProductId, quantity: initialQuantity });
-                            }}
-                            disabled={!selectedOrderId || productOptions.length === 0}
-                            className="w-full"
-                          >
-                            <option value="">เลือกสินค้า</option>
-                            {productOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <input
-                            type="number"
-                            min={isOutOfStock ? 0 : 1}
-                            max={isOutOfStock ? undefined : available}
-                            value={quantityValue}
-                            onChange={(event) => {
-                              const rawValue = Number(event.target.value);
-                              const sanitized = Number.isFinite(rawValue) ? Math.max(1, Math.trunc(rawValue)) : 1;
-                              const clamped = available > 0 ? Math.min(available, sanitized) : sanitized;
-                              updateDraftItem(index, { quantity: clamped });
-                            }}
-                            disabled={isOutOfStock}
-                            className="w-full"
-                          />
-                        </div>
-                        {draftItems.length > 1 && (
-                          <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
-                            ลบ
-                          </button>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-slate-500">อ้างอิง Order ที่ยืนยัน</label>
+                      <div className="space-y-2">
+                        <input
+                          type="search"
+                          value={createOrderSearch}
+                          onChange={(event) => setCreateOrderSearch(event.target.value)}
+                          placeholder="ค้นหา Order ด้วยรหัส ลูกค้า หรือสถานะ"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                        />
+                        <select
+                          name="orderId"
+                          required
+                          value={selectedOrderId}
+                          onChange={(event) => handleOrderSelection(event.target.value)}
+                          disabled={(confirmedOrders ?? []).length === 0}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        >
+                          <option value="">เลือก Order</option>
+                          {orderSelectionOptions.map((order) => (
+                            <option key={order.orderId} value={order.orderId}>
+                              {order.orderId} • ลูกค้า {order.customerId}
+                            </option>
+                          ))}
+                        </select>
+                        {createOrderSearch && orderSelectionOptions.length === 0 && (
+                          <p className="text-xs text-amber-600">ไม่พบ Order ที่ตรงกับคำค้นหา</p>
                         )}
-                        <div className="md:col-span-4 space-y-1 text-xs">
-                          {item.productId && <p className="text-slate-500">คงเหลือใน Order {available} ชิ้น</p>}
-                          {item.productId && item.quantity > available && available >= 0 && (
-                            <p className="text-rose-500">จำนวนที่ขอเบิกเกินจำนวนใน Order</p>
-                          )}
-                          {isOutOfStock && <p className="text-amber-600">สินค้าใน Order หมดแล้ว ไม่สามารถเบิกได้</p>}
-                        </div>
+                        {!createOrderSearch && (confirmedOrders ?? []).length === 0 && (
+                          <p className="text-xs text-slate-500">ยังไม่มี Order ที่ได้รับการยืนยัน</p>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                  <span>จำนวนสินค้ารวม</span>
-                  <span className="font-semibold text-slate-800">{totalQuantity} ชิ้น</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetCreateForm();
-                    setCreateModalOpen(false);
-                  }}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
-                >
-                  ยกเลิก
-                </button>
-                <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
-                  บันทึกคำขอเบิก
-                </button>
-              </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
+                      <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
+                      <textarea name="description" rows={3} placeholder="ระบุหน้างานหรือหมายเหตุ" />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-700">รายการสินค้า</p>
+                      <button
+                        type="button"
+                        onClick={addDraftRow}
+                        disabled={!selectedOrderId || productOptions.length === 0}
+                        className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        เพิ่มสินค้า
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {draftItems.map((item, index) => {
+                        const orderItem = item.productId ? orderItemByProductId.get(item.productId) : undefined;
+                        const available = orderItem?.remainingQty ?? 0;
+                        const isOutOfStock = item.productId ? available <= 0 : false;
+                        const quantityValue = isOutOfStock ? 0 : item.quantity;
+
+                        return (
+                          <div key={`${formResetKey}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-4">
+                            <div className="md:col-span-2">
+                              <select
+                                value={item.productId}
+                                onChange={(event) => {
+                                  const nextProductId = event.target.value;
+                                  const nextOrderItem = orderItemByProductId.get(nextProductId);
+                                  const initialQuantity = nextOrderItem && nextOrderItem.remainingQty > 0 ? 1 : 0;
+                                  updateDraftItem(index, { productId: nextProductId, quantity: initialQuantity });
+                                }}
+                                disabled={!selectedOrderId || productOptions.length === 0}
+                                className="w-full"
+                              >
+                                <option value="">เลือกสินค้า</option>
+                                {productOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <input
+                                type="number"
+                                min={isOutOfStock ? 0 : 1}
+                                max={isOutOfStock ? undefined : available}
+                                value={quantityValue}
+                                onChange={(event) => {
+                                  const rawValue = Number(event.target.value);
+                                  const sanitized = Number.isFinite(rawValue) ? Math.max(1, Math.trunc(rawValue)) : 1;
+                                  const clamped = available > 0 ? Math.min(available, sanitized) : sanitized;
+                                  updateDraftItem(index, { quantity: clamped });
+                                }}
+                                disabled={isOutOfStock}
+                                className="w-full"
+                              />
+                            </div>
+                            {draftItems.length > 1 && (
+                              <button type="button" onClick={() => removeDraftRow(index)} className="text-xs text-rose-500">
+                                ลบ
+                              </button>
+                            )}
+                            <div className="md:col-span-4 space-y-1 text-xs">
+                              {item.productId && <p className="text-slate-500">คงเหลือใน Order {available} ชิ้น</p>}
+                              {item.productId && item.quantity > available && available >= 0 && (
+                                <p className="text-rose-500">จำนวนที่ขอเบิกเกินจำนวนใน Order</p>
+                              )}
+                              {isOutOfStock && <p className="text-amber-600">สินค้าใน Order หมดแล้ว ไม่สามารถเบิกได้</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
+                      <span>จำนวนสินค้ารวม</span>
+                      <span className="font-semibold text-slate-800">{totalQuantity} ชิ้น</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetCreateForm();
+                        setCreateModalOpen(false);
+                      }}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
+                      บันทึกคำขอเบิก
+                    </button>
+                  </div>
             </form>
           </div>
         </div>
