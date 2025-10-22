@@ -24,6 +24,7 @@ export default function OrdersPage() {
   const [isSubmitting, setSubmitting] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [confirmedSearch, setConfirmedSearch] = useState('');
 
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
@@ -72,10 +73,28 @@ export default function OrdersPage() {
     }));
   }, [products]);
 
+  const sortedConfirmedOrders = useMemo(() => {
+    const data = confirmedOrders ?? [];
+    return [...data].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+  }, [confirmedOrders]);
+
+  const filteredConfirmedOrders = useMemo(() => {
+    const query = confirmedSearch.trim().toLowerCase();
+    if (!query) {
+      return sortedConfirmedOrders;
+    }
+    return sortedConfirmedOrders.filter((order) => {
+      const haystack = [order.orderId, order.customerId, order.status ?? '', order.staffId ?? '']
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sortedConfirmedOrders, confirmedSearch]);
+
   const inspectedOrder = useMemo(() => {
     if (!inspectedOrderId) return null;
-    return (confirmedOrders ?? []).find((order) => order.orderId === inspectedOrderId) ?? null;
-  }, [confirmedOrders, inspectedOrderId]);
+    return sortedConfirmedOrders.find((order) => order.orderId === inspectedOrderId) ?? null;
+  }, [sortedConfirmedOrders, inspectedOrderId]);
 
   const totalAmount = useMemo(() => {
     return draftItems.reduce((sum, item) => {
@@ -176,6 +195,20 @@ export default function OrdersPage() {
       setSuccessMessage('ปิด Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิด Order ได้');
+    }
+  };
+
+  const handleViewOrder = (orderId: string) => {
+    if (inspectedOrderId === orderId) {
+      setInspectedOrderId(null);
+      setOrderModalOpen(false);
+      return;
+    }
+    setInspectedOrderId(orderId);
+    if (role === 'TECHNICIAN') {
+      setOrderModalOpen(true);
+    } else {
+      setOrderModalOpen(false);
     }
   };
 
@@ -357,50 +390,139 @@ export default function OrdersPage() {
   )}
 
       <section className="card space-y-4 p-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Order ที่ได้รับการยืนยัน</h2>
-          <p className="text-sm text-slate-500">ดึงจาก /orders/confirmed</p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Order ที่ได้รับการยืนยัน</h2>
+            <p className="text-sm text-slate-500">ดึงจาก /orders/confirmed</p>
+          </div>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
+            <input
+              type="search"
+              value={confirmedSearch}
+              onChange={(event) => setConfirmedSearch(event.target.value)}
+              placeholder="ค้นหาด้วย Order ID ลูกค้า หรือสถานะ"
+              className="w-full md:w-80"
+            />
+            <p className="text-xs text-slate-400">
+              แสดง {filteredConfirmedOrders.length} จาก {sortedConfirmedOrders.length} รายการ
+            </p>
+          </div>
         </div>
-        <div className="space-y-3">
-          {(confirmedOrders ?? []).map((order) => (
-            <button
-              key={order.orderId}
-              type="button"
-              onClick={() => {
-                if (role === 'TECHNICIAN') {
-                  setInspectedOrderId(order.orderId);
-                  setOrderModalOpen(true);
-                } else {
-                  setOrderModalOpen(false);
-                  setInspectedOrderId((prev) => (prev === order.orderId ? null : order.orderId));
-                }
-              }}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${inspectedOrderId === order.orderId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 hover:border-primary-200 hover:bg-slate-50'}`}
-            >
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-semibold text-slate-800">{order.orderId}</p>
-                  <p className="text-xs text-slate-500">ลูกค้า: {order.customerId} • สถานะ: {order.status}</p>
-                </div>
-                <span className="text-xs text-slate-400">{format(new Date(order.orderDate), 'dd MMM yyyy')}</span>
+        <div className="overflow-hidden rounded-2xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Order ID</th>
+                <th className="px-4 py-3">วันที่</th>
+                <th className="px-4 py-3">ลูกค้า</th>
+                <th className="px-4 py-3">ยอดรวม</th>
+                <th className="px-4 py-3">สถานะ</th>
+                <th className="px-4 py-3">ผู้รับผิดชอบ</th>
+                <th className="px-4 py-3">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {confirmedOrders === undefined ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">
+                    กำลังโหลดข้อมูล...
+                  </td>
+                </tr>
+              ) : filteredConfirmedOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
+                    {sortedConfirmedOrders.length === 0 ? 'ยังไม่มี Order ที่ยืนยัน' : 'ไม่พบ Order ที่ตรงกับการค้นหา'}
+                  </td>
+                </tr>
+              ) : (
+                filteredConfirmedOrders.map((order) => {
+                  const isSelected = inspectedOrderId === order.orderId;
+                  return (
+                    <tr
+                      key={order.orderId}
+                      className={`hover:bg-slate-50/60 ${isSelected ? 'bg-primary-50/60' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.orderId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {format(new Date(order.orderDate), 'dd MMM yyyy')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{order.customerId}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        ฿{Number(order.totalAmount).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-700">{order.status}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{order.staffId}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleViewOrder(order.orderId)}
+                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                        >
+                          {isSelected ? 'ซ่อน' : 'ดูรายละเอียด'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        {role !== 'TECHNICIAN' && inspectedOrder && (
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800">รายละเอียด {inspectedOrder.orderId}</h3>
+                <p className="text-xs text-slate-500">
+                  ลูกค้า {inspectedOrder.customerId} • วันที่ {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                </p>
               </div>
-            </button>
-          ))}
-          {(confirmedOrders?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มี Order ที่ยืนยัน</p>}
-        </div>
-        {role !== 'TECHNICIAN' && inspectedOrderId && orderItems && (
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">รายการสินค้าใน {inspectedOrderId}</h3>
-            <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              {orderItems.map((item) => (
-                <li key={item.orderItemId} className="flex justify-between">
-                  <span>
-                    {item.productId} • {item.quantity} ชิ้น
-                  </span>
-                  <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
-                </li>
-              ))}
-            </ul>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectedOrderId(null);
+                  setOrderModalOpen(false);
+                }}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+              >
+                ปิด
+              </button>
+            </div>
+            <div className="grid gap-3 rounded-xl bg-white p-4 text-xs text-slate-500 md:grid-cols-3">
+              <div>
+                <p className="font-semibold text-slate-600">สถานะ</p>
+                <p className="mt-1 text-slate-800">{inspectedOrder.status}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-600">ยอดรวม</p>
+                <p className="mt-1 text-slate-800">฿{Number(inspectedOrder.totalAmount).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-600">ผู้รับผิดชอบ</p>
+                <p className="mt-1 text-slate-800">{inspectedOrder.staffId}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+              {orderItems ? (
+                orderItems.length > 0 ? (
+                  <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                    {orderItems.map((item) => (
+                      <li key={item.orderItemId} className="flex items-center justify-between rounded-xl bg-white px-4 py-3">
+                        <span>
+                          {item.productId} • {item.quantity} ชิ้น
+                        </span>
+                        <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 rounded-xl bg-white px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าใน Order นี้</p>
+                )
+              ) : (
+                <p className="mt-2 rounded-xl bg-white px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+              )}
+            </div>
           </div>
         )}
       </section>
