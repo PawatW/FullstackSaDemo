@@ -13,7 +13,7 @@ interface DraftRequestItem {
 }
 
 export default function RequestsPage() {
-  const { role, token } = useAuth();
+  const { role, token, staffId } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [warehouseExpandedRequestId, setWarehouseExpandedRequestId] = useState<string | null>(null);
@@ -729,11 +729,11 @@ export default function RequestsPage() {
         </section>
       )}
 
-      {canFulfill && (
+      {role === 'TECHNICIAN' && (
         <section className="card space-y-4 p-6">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Warehouse: คำขอที่อนุมัติแล้ว</h2>
-            <p className="text-sm text-slate-500">ดึงจาก /stock/approved-requests และ POST /stock/fulfill</p>
+            <h2 className="text-lg font-semibold text-slate-900">Technician: คำขอของฉัน</h2>
+            <p className="text-sm text-slate-500">ดึงจาก /requests และสามารถเปิดดูรายละเอียดได้</p>
           </div>
           <div className="space-y-4">
             {(approvedRequests ?? []).map((request) => {
