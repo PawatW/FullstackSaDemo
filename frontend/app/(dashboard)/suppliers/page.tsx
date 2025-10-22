@@ -14,7 +14,7 @@ export default function SuppliersPage() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
 
-  const canCreate = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canCreate = role === 'SALES';
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
