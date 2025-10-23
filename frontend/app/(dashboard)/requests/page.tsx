@@ -43,10 +43,12 @@ export default function RequestsPage() {
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products, mutate: mutateProducts } = useAuthedSWR<Product[]>('/products', token);
-  const { data: selectedOrderItems } = useAuthedSWR<OrderItem[]>(
-    selectedOrderId ? `/orders/${selectedOrderId}/items` : null,
-    token
-  );
+  const {
+    data: selectedOrderItems,
+    error: selectedOrderItemsError,
+    isLoading: isSelectedOrderItemsLoading
+  } = useAuthedSWR<OrderItem[]>(selectedOrderId ? `/orders/${selectedOrderId}/items` : null, token);
+  const hasOrderItemsError = Boolean(selectedOrderItemsError);
   const previewItemsKey = orderPreviewId && orderPreviewId !== selectedOrderId ? `/orders/${orderPreviewId}/items` : null;
   const { data: previewOrderItems } = useAuthedSWR<OrderItem[]>(previewItemsKey, token);
   const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' || role === 'ADMIN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
@@ -139,20 +141,20 @@ export default function RequestsPage() {
       return [] as OrderItem[];
     }
     if (orderPreviewId === selectedOrderId) {
-      return selectedOrderItems ?? [];
+      return orderItemsForSelectedOrder;
     }
     return previewOrderItems ?? [];
-  }, [orderPreviewId, selectedOrderId, selectedOrderItems, previewOrderItems]);
+  }, [orderPreviewId, selectedOrderId, orderItemsForSelectedOrder, previewOrderItems]);
 
   const isPreviewLoading = useMemo(() => {
     if (!orderPreviewId) {
       return false;
     }
     if (orderPreviewId === selectedOrderId) {
-      return selectedOrderItems === undefined;
+      return Boolean(selectedOrderId) && isSelectedOrderItemsLoading;
     }
     return previewOrderItems === undefined;
-  }, [orderPreviewId, selectedOrderId, selectedOrderItems, previewOrderItems]);
+  }, [orderPreviewId, selectedOrderId, isSelectedOrderItemsLoading, previewOrderItems]);
 
   const sortedPendingRequests = useMemo(() => {
     const data = pendingRequests ?? [];
@@ -247,15 +249,29 @@ export default function RequestsPage() {
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
+  const orderItemsForSelectedOrder = useMemo(() => {
+    if (!selectedOrderId || hasOrderItemsError) {
+      return [] as OrderItem[];
+    }
+    const items = selectedOrderItems ?? [];
+    if (items.length === 0) {
+      return items;
+    }
+    if (items.some((item) => item.orderId && item.orderId !== selectedOrderId)) {
+      return items.filter((item) => item.orderId === selectedOrderId);
+    }
+    return items;
+  }, [selectedOrderId, selectedOrderItems, hasOrderItemsError]);
+
   const orderItemByProductId = useMemo(() => {
     const map = new Map<string, OrderItem>();
-    (selectedOrderItems ?? []).forEach((item) => {
+    orderItemsForSelectedOrder.forEach((item) => {
       if (!map.has(item.productId)) {
         map.set(item.productId, item);
       }
     });
     return map;
-  }, [selectedOrderItems]);
+  }, [orderItemsForSelectedOrder]);
 
   const productById = useMemo(() => {
     const map = new Map<string, Product>();
@@ -383,9 +399,12 @@ export default function RequestsPage() {
   };
 
   const productOptions = useMemo(() => {
+    if (!selectedOrderId || hasOrderItemsError) {
+      return [];
+    }
     const seen = new Set<string>();
     const options: { value: string; label: string }[] = [];
-    (selectedOrderItems ?? []).forEach((item) => {
+    orderItemsForSelectedOrder.forEach((item) => {
       if (seen.has(item.productId)) {
         return;
       }
@@ -407,7 +426,7 @@ export default function RequestsPage() {
       });
     });
     return options;
-  }, [products, selectedOrderItems, existingRequestTotals]);
+  }, [products, orderItemsForSelectedOrder, existingRequestTotals, selectedOrderId, hasOrderItemsError]);
 
   const allowedProductIds = useMemo(() => new Set(productOptions.map((option) => option.value)), [productOptions]);
 
@@ -1063,15 +1082,24 @@ export default function RequestsPage() {
                               <p className="mt-1 text-slate-800">฿{selectedOrder.totalAmount?.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                             </div>
                           </div>
+                          {isSelectedOrderItemsLoading && (
+                            <p className="text-xs text-slate-500">กำลังโหลดรายการสินค้าของ Order นี้...</p>
+                          )}
+                          {hasOrderItemsError && (
+                            <p className="text-xs text-rose-500">ไม่สามารถโหลดรายการสินค้าของ Order นี้ได้ กรุณาลองใหม่อีกครั้ง</p>
+                          )}
                           {existingTotalsError && (
                             <p className="text-xs text-amber-600">{existingTotalsError}</p>
                           )}
                           {isLoadingExistingTotals && (
                             <p className="text-xs text-slate-500">กำลังตรวจสอบคำขอที่เกี่ยวข้องกับ Order นี้...</p>
                           )}
-                          {!isLoadingExistingTotals && productOptions.length === 0 && (
-                            <p className="text-xs text-amber-600">สินค้าใน Order นี้ถูกขอครบแล้ว ไม่สามารถขอเพิ่มได้</p>
-                          )}
+                          {!isLoadingExistingTotals &&
+                            !isSelectedOrderItemsLoading &&
+                            !hasOrderItemsError &&
+                            productOptions.length === 0 && (
+                              <p className="text-xs text-amber-600">สินค้าใน Order นี้ถูกขอครบแล้ว ไม่สามารถขอเพิ่มได้</p>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1090,7 +1118,13 @@ export default function RequestsPage() {
                       <button
                         type="button"
                         onClick={addDraftRow}
-                        disabled={!selectedOrderId || productOptions.length === 0 || isLoadingExistingTotals}
+                        disabled={
+                          !selectedOrderId ||
+                          isSelectedOrderItemsLoading ||
+                          hasOrderItemsError ||
+                          productOptions.length === 0 ||
+                          isLoadingExistingTotals
+                        }
                         className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                       >
                         เพิ่มสินค้า
@@ -1132,7 +1166,13 @@ export default function RequestsPage() {
                                   const initialQuantity = remainingForProduct > 0 ? 1 : 0;
                                   updateDraftItem(index, { productId: nextProductId, quantity: initialQuantity });
                                 }}
-                                disabled={!selectedOrderId || productOptions.length === 0 || isLoadingExistingTotals}
+                                disabled={
+                                  !selectedOrderId ||
+                                  isSelectedOrderItemsLoading ||
+                                  hasOrderItemsError ||
+                                  productOptions.length === 0 ||
+                                  isLoadingExistingTotals
+                                }
                                 className="w-full"
                               >
                                 <option value="">เลือกสินค้า</option>
