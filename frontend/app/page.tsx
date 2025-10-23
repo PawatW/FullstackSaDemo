@@ -36,7 +36,6 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="space-y-2 text-center">
             <h2 className="text-3xl font-semibold text-slate-900">เข้าสู่ระบบ</h2>
-            <p className="text-sm text-slate-500">ใช้บัญชี Staff ที่สร้างจากระบบหลังบ้าน</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -56,10 +55,6 @@ export default function LoginPage() {
               {loading ? 'กำลังโหลด...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
-          <div className="space-y-1 text-center text-xs text-slate-400">
-            <p>Smart Inventory Portal • Powered by Next.js</p>
-            <p>อ้างอิงโค้ดจาก Spring Boot backend เพื่อเชื่อมต่อ API</p>
-          </div>
         </div>
       </div>
     </div>

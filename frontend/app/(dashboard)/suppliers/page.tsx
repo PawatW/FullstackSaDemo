@@ -110,7 +110,6 @@ export default function SuppliersPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">รายชื่อ Supplier</h2>
-            <p className="text-sm text-slate-500">ข้อมูลสำหรับอ้างอิงการบันทึก Stock-In</p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
             <input

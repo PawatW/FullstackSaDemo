@@ -71,12 +71,17 @@ export default function InventoryPage() {
       return;
     }
 
+    if (!supplierId) {
+      setError('กรุณาเลือก Supplier สำหรับสินค้า');
+      return;
+    }
+
     const payload = {
       productName,
       description: description || undefined,
       unit: unit || undefined,
       pricePerUnit,
-      supplierId: supplierId || undefined,
+      supplierId,
       quantity,
       imageUrl: imageUrl || undefined
     };
@@ -238,8 +243,8 @@ export default function InventoryPage() {
                       name="supplierId"
                       value={selectedSupplierId}
                       onChange={setSelectedSupplierId}
-                      options={[{ value: '', label: 'เลือก Supplier (ไม่บังคับ)' }, ...supplierOptions]}
-                      placeholder="เลือก Supplier (ไม่บังคับ)"
+                      options={supplierOptions}
+                      placeholder="เลือก Supplier"
                       searchPlaceholder="ค้นหา Supplier..."
                       emptyMessage="ไม่พบ Supplier"
                     />
@@ -249,6 +254,7 @@ export default function InventoryPage() {
                       placeholder="เช่น SUP-001"
                       value={selectedSupplierId}
                       onChange={(event) => setSelectedSupplierId(event.target.value)}
+                      required
                     />
                   )}
                 </div>
