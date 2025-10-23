@@ -391,13 +391,16 @@ export default function RequestsPage() {
       }
       seen.add(item.productId);
       const product = (products ?? []).find((candidate) => candidate.productId === item.productId);
+      const totalOrdered = item.quantity ?? 0;
       const alreadyRequested = existingRequestTotals.get(item.productId) ?? 0;
-      const remaining = Math.max(item.quantity - alreadyRequested, 0);
-      if (remaining <= 0) {
+      const remainingForRequest = Math.max(totalOrdered - alreadyRequested, 0);
+      if (remainingForRequest <= 0) {
         return;
       }
       const baseLabel = product ? `${product.productName} (${product.productId})` : item.productId;
-      const label = `${baseLabel} • คงเหลือ ${remaining}/${item.quantity}`;
+      const label = `${baseLabel} • จำนวน ${totalOrdered.toLocaleString('th-TH')} ชิ้น • เบิกแล้ว ${alreadyRequested.toLocaleString(
+        'th-TH'
+      )} ชิ้น • คงเหลือ ${remainingForRequest.toLocaleString('th-TH')} ชิ้น`;
       options.push({
         value: item.productId,
         label
