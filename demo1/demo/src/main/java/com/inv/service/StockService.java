@@ -48,7 +48,13 @@ public class StockService {
         transaction.setStaffId(staffId);
 
         // สร้าง reference note ตาม use case
-        String referenceNote = String.format("Stock-In from Supplier ID %s. Note: %s", supplierId, note);
+        String sanitizedNote = (note != null && !note.isBlank()) ? note : "-";
+        String referenceNote;
+        if (supplierId != null && !supplierId.isBlank()) {
+            referenceNote = String.format("Stock-In from Supplier ID %s. Note: %s", supplierId, sanitizedNote);
+        } else {
+            referenceNote = String.format("Stock-In. Note: %s", sanitizedNote);
+        }
         transaction.setDescription(referenceNote); // แก้ไข: ใช้ setDescription ตาม schema ใหม่
 
         stockTransactionRepository.save(transaction);
@@ -101,9 +107,7 @@ public class StockService {
 
     // แก้ไข: เปลี่ยน Type ของ ID ทั้งหมดเป็น String
     private void checkAndUpdateRequestAndOrderStatus(String requestId, String productId, int fulfillQty) {
-        if (requestRepository.areAllItemsFulfilled(requestId)) {
-            requestRepository.updateRequestStatus(requestId, "Closed");
-        }
+        requestRepository.updateRequestStatus(requestId, "Pending");
 
         Request request = requestRepository.findById(requestId);
         if (request != null && request.getOrderId() != null) {
