@@ -9,9 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.UUID; // Import เพิ่ม
 
 @Service
@@ -57,6 +58,10 @@ public class RequestService {
 
         String requestId = "REQ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         req.setRequestId(requestId);
+        req.setRequestDate(LocalDateTime.now());
+        if (req.getStatus() == null || req.getStatus().isBlank()) {
+            req.setStatus("Awaiting Approval");
+        }
         requestRepository.save(req);
 
         for (RequestItem i : items) {

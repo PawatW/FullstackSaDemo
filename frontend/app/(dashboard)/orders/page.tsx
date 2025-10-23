@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
@@ -13,6 +13,24 @@ interface DraftItem {
   quantity: number;
 }
 
+const parseDateTime = (value?: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getTimeValue = (value?: string | null) => {
+  const date = parseDateTime(value);
+  return date ? date.getTime() : 0;
+};
+
+const formatDateTime = (value?: string | null, pattern = 'dd MMM yyyy') => {
+  const date = parseDateTime(value);
+  return date ? format(date, pattern) : '-';
+};
+
 export default function OrdersPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +38,8 @@ export default function OrdersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [inspectedOrderId, setInspectedOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
+  const [readyOrderInspectId, setReadyOrderInspectId] = useState<string | null>(null);
+  const [isReadyOrderModalOpen, setReadyOrderModalOpen] = useState(false);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ productId: '', quantity: 1 }]);
   const [isSubmitting, setSubmitting] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -36,6 +56,11 @@ export default function OrdersPage() {
   const { data: orderItems } = useAuthedSWR<OrderItem[]>(inspectedOrderId ? `/orders/${inspectedOrderId}/items` : null, token, {
     revalidateOnFocus: false
   });
+  const { data: readyOrderItems, isLoading: isReadyOrderItemsLoading } = useAuthedSWR<OrderItem[]>(
+    readyOrderInspectId ? `/orders/${readyOrderInspectId}/items` : null,
+    token,
+    { revalidateOnFocus: false }
+  );
 
   const canCreate = role === 'SALES' || role === 'ADMIN';
 
@@ -75,7 +100,7 @@ export default function OrdersPage() {
 
   const sortedConfirmedOrders = useMemo(() => {
     const data = confirmedOrders ?? [];
-    return [...data].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+    return [...data].sort((a, b) => getTimeValue(b.orderDate) - getTimeValue(a.orderDate));
   }, [confirmedOrders]);
 
   const filteredConfirmedOrders = useMemo(() => {
@@ -95,6 +120,18 @@ export default function OrdersPage() {
     if (!inspectedOrderId) return null;
     return sortedConfirmedOrders.find((order) => order.orderId === inspectedOrderId) ?? null;
   }, [sortedConfirmedOrders, inspectedOrderId]);
+
+  const inspectedReadyOrder = useMemo(() => {
+    if (!readyOrderInspectId) return null;
+    return (readyToClose ?? []).find((order) => order.orderId === readyOrderInspectId) ?? null;
+  }, [readyToClose, readyOrderInspectId]);
+
+  useEffect(() => {
+    if (readyOrderInspectId && !(readyToClose ?? []).some((order) => order.orderId === readyOrderInspectId)) {
+      setReadyOrderInspectId(null);
+      setReadyOrderModalOpen(false);
+    }
+  }, [readyOrderInspectId, readyToClose]);
 
   const totalAmount = useMemo(() => {
     return draftItems.reduce((sum, item) => {
@@ -127,7 +164,6 @@ export default function OrdersPage() {
 
     const formData = new FormData(form);
     const customerId = selectedCustomerId || String(formData.get('customerId') ?? '');
-    const orderDate = String(formData.get('orderDate'));
     const status = 'Confirmed';
 
     if (!customerId) {
@@ -153,7 +189,6 @@ export default function OrdersPage() {
 
     const payload = {
       order: {
-        orderDate,
         customerId,
         status,
         totalAmount
@@ -181,6 +216,16 @@ export default function OrdersPage() {
     }
   };
 
+  const handleReadyOrderInspect = (orderId: string) => {
+    if (readyOrderInspectId === orderId) {
+      setReadyOrderInspectId(null);
+      setReadyOrderModalOpen(false);
+      return;
+    }
+    setReadyOrderInspectId(orderId);
+    setReadyOrderModalOpen(true);
+  };
+
   const handleCloseOrder = async (orderId: string) => {
     if (!token) return;
     setError(null);
@@ -192,6 +237,10 @@ export default function OrdersPage() {
       });
       mutateReady();
       mutateAll();
+      if (readyOrderInspectId === orderId) {
+        setReadyOrderModalOpen(false);
+        setReadyOrderInspectId(null);
+      }
       setSuccessMessage('ปิด Order เรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิด Order ได้');
@@ -285,10 +334,6 @@ export default function OrdersPage() {
                   {customerOptions.length === 0 && (
                     <p className="text-xs text-rose-500">ยังไม่มีข้อมูลลูกค้า โปรดเพิ่มในเมนู Customers</p>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
-                  <input name="orderDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
                 </div>
               </div>
 
@@ -444,7 +489,7 @@ export default function OrdersPage() {
                     >
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.orderId}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {format(new Date(order.orderDate), 'dd MMM yyyy')}
+                        {formatDateTime(order.orderDate, 'dd MMM yyyy')}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{order.customerId}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">
@@ -474,7 +519,7 @@ export default function OrdersPage() {
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">รายละเอียด {inspectedOrder.orderId}</h3>
                 <p className="text-xs text-slate-500">
-                  ลูกค้า {inspectedOrder.customerId} • วันที่ {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                  ลูกค้า {inspectedOrder.customerId} • วันที่ {formatDateTime(inspectedOrder.orderDate, 'dd MMM yyyy')}
                 </p>
               </div>
               <button
@@ -537,7 +582,7 @@ export default function OrdersPage() {
                   {inspectedOrder ? (
                     <p className="text-sm text-slate-500">
                       {inspectedOrder.orderId} • ลูกค้า {inspectedOrder.customerId} • วันที่{' '}
-                      {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                      {formatDateTime(inspectedOrder.orderDate, 'dd MMM yyyy')}
                     </p>
                   ) : (
                     <p className="text-sm text-slate-500">กำลังโหลดข้อมูล Order...</p>
@@ -596,19 +641,104 @@ export default function OrdersPage() {
             <p className="text-sm text-slate-500">ใช้ /orders/ready-to-close และ PUT /orders/{'{orderId}'}/close</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {(readyToClose ?? []).map((order) => (
-              <div key={order.orderId} className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">{order.orderId}</p>
-                <p className="mt-1 text-xs text-slate-500">สถานะ: {order.status}</p>
-                <p className="mt-1 text-xs text-slate-500">ยอดรวม: ฿{Number(order.totalAmount).toLocaleString()}</p>
-                <button onClick={() => handleCloseOrder(order.orderId)} className="mt-3 w-full bg-primary-600 py-2 text-xs font-semibold text-white">
-                  ปิด Order
-                </button>
-              </div>
-            ))}
+            {(readyToClose ?? []).map((order) => {
+              const isInspected = readyOrderInspectId === order.orderId;
+              return (
+                <div key={order.orderId} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-800">{order.orderId}</p>
+                  <p className="mt-1 text-xs text-slate-500">ลูกค้า: {order.customerId}</p>
+                  <p className="mt-1 text-xs text-slate-500">วันที่: {formatDateTime(order.orderDate, 'dd MMM yyyy HH:mm')}</p>
+                  <p className="mt-1 text-xs text-slate-500">สถานะ: {order.status}</p>
+                  <p className="mt-1 text-xs text-slate-500">ยอดรวม: ฿{Number(order.totalAmount).toLocaleString()}</p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleReadyOrderInspect(order.orderId)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                    >
+                      {isInspected ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCloseOrder(order.orderId)}
+                      className="w-full rounded-lg bg-primary-600 py-2 text-xs font-semibold text-white"
+                    >
+                      ปิด Order
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
             {(readyToClose?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีรายการพร้อมปิด</p>}
           </div>
         </section>
+      )}
+
+      {isReadyOrderModalOpen && inspectedReadyOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียด Order ที่พร้อมปิด</h2>
+                  <p className="text-sm text-slate-500">
+                    {inspectedReadyOrder.orderId} • ลูกค้า {inspectedReadyOrder.customerId} • วันที่{' '}
+                    {formatDateTime(inspectedReadyOrder.orderDate, 'dd MMM yyyy HH:mm')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReadyOrderModalOpen(false);
+                    setReadyOrderInspectId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+              <div className="mt-6 space-y-4 text-sm text-slate-600">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                  <div>
+                    <p className="font-semibold text-slate-600">สถานะ</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyOrder.status}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ยอดรวม</p>
+                    <p className="mt-1 text-slate-800">฿{Number(inspectedReadyOrder.totalAmount).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ผู้รับผิดชอบ</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyOrder.staffId ?? '-'}</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+                  {isReadyOrderItemsLoading ? (
+                    <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                  ) : readyOrderItems && readyOrderItems.length > 0 ? (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                      {readyOrderItems.map((item) => (
+                        <li key={item.orderItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2">
+                          <span>
+                            {productMap.get(item.productId)?.productName
+                              ? `${productMap.get(item.productId)?.productName} (${item.productId})`
+                              : item.productId}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {item.quantity} ชิ้น • คงเหลือ {item.remainingQty}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าใน Order นี้</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {role === 'ADMIN' && allOrders && (
@@ -632,7 +762,7 @@ export default function OrdersPage() {
                 {allOrders.map((order) => (
                   <tr key={order.orderId}>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.orderId}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{format(new Date(order.orderDate), 'dd MMM yyyy')}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{formatDateTime(order.orderDate, 'dd MMM yyyy')}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{order.customerId}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">฿{Number(order.totalAmount).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-700">{order.status}</td>

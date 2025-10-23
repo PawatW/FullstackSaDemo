@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../../../components/AuthContext';
 import { apiFetch } from '../../../lib/api';
 import { useAuthedSWR } from '../../../lib/swr';
-import type { Product, StockTransaction, Supplier } from '../../../lib/types';
+import type { Product, StockTransaction } from '../../../lib/types';
 import { SearchableSelect, type SearchableOption } from '../../../components/SearchableSelect';
 
 export default function StockPage() {
@@ -15,13 +15,11 @@ export default function StockPage() {
   const [isStockInModalOpen, setStockInModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [transactionSearch, setTransactionSearch] = useState('');
   const [inspectedTransactionId, setInspectedTransactionId] = useState<string | null>(null);
   const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
 
   const { data: products } = useAuthedSWR<Product[]>(role ? '/products' : null, token);
-  const { data: suppliers } = useAuthedSWR<Supplier[]>(role ? '/suppliers' : null, token);
   const { data: transactions, mutate } = useAuthedSWR<StockTransaction[]>(
     role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/transactions' : null,
     token,
@@ -43,15 +41,6 @@ export default function StockPage() {
       keywords: [product.productName, product.productId, product.unit ?? '', product.supplierId ?? '', product.description ?? '']
     }));
   }, [products]);
-
-  const supplierOptions = useMemo<SearchableOption[]>(() => {
-    return (suppliers ?? []).map((supplier) => ({
-      value: supplier.supplierId,
-      label: `${supplier.supplierName} (${supplier.supplierId})`,
-      description: [supplier.phone, supplier.email].filter(Boolean).join(' • ') || undefined,
-      keywords: [supplier.supplierName, supplier.supplierId, supplier.phone ?? '', supplier.email ?? '', supplier.address ?? '']
-    }));
-  }, [suppliers]);
 
   const sortedTransactions = useMemo(() => {
     const data = transactions ?? [];
@@ -95,7 +84,6 @@ export default function StockPage() {
     const productId = String(formData.get('productId') ?? '').trim();
     const quantityRaw = formData.get('quantity');
     const quantity = quantityRaw === null || quantityRaw === '' ? 0 : Number(quantityRaw);
-    const supplierId = String(formData.get('supplierId') ?? '').trim();
     const note = String(formData.get('note') ?? '');
 
     if (!productId) {
@@ -111,7 +99,6 @@ export default function StockPage() {
     const payload = {
       productId,
       quantity,
-      supplierId: supplierId || undefined,
       note: note || undefined
     };
 
@@ -126,7 +113,6 @@ export default function StockPage() {
       setStockInModalOpen(false);
       setFormResetKey((prev) => prev + 1);
       setSelectedProductId('');
-      setSelectedSupplierId('');
       mutate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถบันทึกสินค้าเข้าได้');
@@ -159,7 +145,6 @@ export default function StockPage() {
                   setStockInModalOpen(true);
                   setFormResetKey((prev) => prev + 1);
                   setSelectedProductId('');
-                  setSelectedSupplierId('');
                 }}
                 className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
               >
@@ -180,12 +165,11 @@ export default function StockPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          setStockInModalOpen(false);
-                          setFormResetKey((prev) => prev + 1);
-                          setSelectedProductId('');
-                          setSelectedSupplierId('');
-                        }}
+                          onClick={() => {
+                            setStockInModalOpen(false);
+                            setFormResetKey((prev) => prev + 1);
+                            setSelectedProductId('');
+                          }}
                         className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
                       >
                         ปิด
@@ -214,20 +198,6 @@ export default function StockPage() {
                           <label className="text-xs font-medium text-slate-500">จำนวน</label>
                           <input name="quantity" type="number" min={1} required />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-medium text-slate-500">Supplier</label>
-                          <SearchableSelect
-                            key={`stock-supplier-${formResetKey}`}
-                            name="supplierId"
-                            value={selectedSupplierId}
-                            onChange={setSelectedSupplierId}
-                            options={[{ value: '', label: 'เลือก Supplier (ไม่บังคับ)' }, ...supplierOptions]}
-                            placeholder="เลือก Supplier (ไม่บังคับ)"
-                            searchPlaceholder="ค้นหา Supplier..."
-                            emptyMessage="ไม่พบ Supplier"
-                            disabled={supplierOptions.length === 0}
-                          />
-                        </div>
                         <div className="space-y-2 md:col-span-2">
                           <label className="text-xs font-medium text-slate-500">หมายเหตุ</label>
                           <textarea name="note" rows={3} placeholder="อ้างอิงใบส่งของหรือข้อมูลขนส่ง" />
@@ -240,7 +210,6 @@ export default function StockPage() {
                             setStockInModalOpen(false);
                             setFormResetKey((prev) => prev + 1);
                             setSelectedProductId('');
-                            setSelectedSupplierId('');
                           }}
                           className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
                         >
