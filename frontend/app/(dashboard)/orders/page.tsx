@@ -82,7 +82,7 @@ export default function OrdersPage() {
 
   const sortedConfirmedOrders = useMemo(() => {
     const data = confirmedOrders ?? [];
-    return [...data].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+    return [...data].sort((a, b) => b.orderDate - a.orderDate);
   }, [confirmedOrders]);
 
   const filteredConfirmedOrders = useMemo(() => {
@@ -146,7 +146,6 @@ export default function OrdersPage() {
 
     const formData = new FormData(form);
     const customerId = selectedCustomerId || String(formData.get('customerId') ?? '');
-    const orderDate = String(formData.get('orderDate'));
     const status = 'Confirmed';
 
     if (!customerId) {
@@ -172,7 +171,7 @@ export default function OrdersPage() {
 
     const payload = {
       order: {
-        orderDate,
+        orderDate: Date.now(),
         customerId,
         status,
         totalAmount
@@ -318,10 +317,6 @@ export default function OrdersPage() {
                   {customerOptions.length === 0 && (
                     <p className="text-xs text-rose-500">ยังไม่มีข้อมูลลูกค้า โปรดเพิ่มในเมนู Customers</p>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">วันที่ Order</label>
-                  <input name="orderDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
                 </div>
               </div>
 

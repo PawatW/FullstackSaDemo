@@ -1,13 +1,11 @@
 package com.inv.model;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public class Order {
     private String orderId; // แก้เป็น String
-    private String orderDate;
+    private Long orderDate;
     private BigDecimal totalAmount;
     private String status;
     private String customerId; // แก้เป็น String
@@ -27,8 +25,8 @@ public class Order {
 
 
     //... (Getters and Setters ที่เหลือ)
-    public String getOrderDate() { return orderDate; }
-    public void setOrderDate(String orderDate) { this.orderDate = orderDate; }
+    public Long getOrderDate() { return orderDate; }
+    public void setOrderDate(Long orderDate) { this.orderDate = orderDate; }
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }

@@ -57,6 +57,10 @@ public class RequestService {
 
         String requestId = "REQ-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         req.setRequestId(requestId);
+        req.setRequestDate(System.currentTimeMillis());
+        if (req.getStatus() == null || req.getStatus().isBlank()) {
+            req.setStatus("Awaiting Approval");
+        }
         requestRepository.save(req);
 
         for (RequestItem i : items) {

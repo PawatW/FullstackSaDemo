@@ -27,6 +27,7 @@ public class OrderService {
         String orderId = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         order.setOrderId(orderId);
         order.setStaffId(staffId);
+        order.setOrderDate(System.currentTimeMillis());
         orderRepository.save(order);
 
         for (OrderItem item : items) {

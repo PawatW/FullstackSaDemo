@@ -48,7 +48,13 @@ public class StockService {
         transaction.setStaffId(staffId);
 
         // สร้าง reference note ตาม use case
-        String referenceNote = String.format("Stock-In from Supplier ID %s. Note: %s", supplierId, note);
+        String sanitizedNote = (note != null && !note.isBlank()) ? note : "-";
+        String referenceNote;
+        if (supplierId != null && !supplierId.isBlank()) {
+            referenceNote = String.format("Stock-In from Supplier ID %s. Note: %s", supplierId, sanitizedNote);
+        } else {
+            referenceNote = String.format("Stock-In. Note: %s", sanitizedNote);
+        }
         transaction.setDescription(referenceNote); // แก้ไข: ใช้ setDescription ตาม schema ใหม่
 
         stockTransactionRepository.save(transaction);

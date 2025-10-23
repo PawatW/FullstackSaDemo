@@ -105,7 +105,7 @@ export default function RequestsPage() {
   const orderOptions = useMemo<SearchableOption[]>(() => {
     const data = confirmedOrders ?? [];
     return [...data]
-      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .sort((a, b) => b.orderDate - a.orderDate)
       .map((order) => {
         const customerName = customerById.get(order.customerId)?.customerName;
         const customerLabel = customerName ? `${customerName} (${order.customerId})` : order.customerId;
@@ -180,7 +180,7 @@ export default function RequestsPage() {
 
   const sortedPendingRequests = useMemo(() => {
     const data = pendingRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [pendingRequests]);
 
   const filteredPendingRequests = useMemo(() => {
@@ -205,7 +205,7 @@ export default function RequestsPage() {
 
   const sortedApprovedRequests = useMemo(() => {
     const data = approvedRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [approvedRequests]);
 
   // const filteredWarehouseRequests = useMemo(() => {
@@ -230,7 +230,7 @@ export default function RequestsPage() {
 
   const sortedAllRequests = useMemo(() => {
     const data = allRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [allRequests]);
 
   const filteredAllRequests = useMemo(() => {
@@ -373,7 +373,7 @@ export default function RequestsPage() {
     if (role !== 'TECHNICIAN') return []; // Only calculate if relevant
     return data
       .filter((request) => request.staffId === staffId)
-      .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+      .sort((a, b) => b.requestDate - a.requestDate);
   }, [allRequests, staffId, role]);
 
 
@@ -596,7 +596,6 @@ export default function RequestsPage() {
       setError('กรุณาเลือก Order ที่ยืนยัน');
       return;
     }
-    const requestDate = String(formData.get('requestDate'));
     const description = String(formData.get('description') || '');
 
     const selectedOrder = confirmedOrders?.find((order) => order.orderId === orderId);
@@ -659,7 +658,7 @@ export default function RequestsPage() {
       request: {
         orderId,
         customerId,
-        requestDate,
+        requestDate: Date.now(),
         status: 'Awaiting Approval',
         description
       },
@@ -1225,10 +1224,6 @@ export default function RequestsPage() {
                             )}
                         </div>
                       )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
-                      <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
