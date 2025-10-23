@@ -20,7 +20,6 @@ export default function StaffAdminPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Staff Management</h1>
-        <p className="text-sm text-slate-500">Admin เท่านั้น: GET/POST /staff</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
