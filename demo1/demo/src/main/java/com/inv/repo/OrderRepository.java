@@ -5,6 +5,7 @@ import com.inv.model.OrderItem;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -81,8 +82,20 @@ public class OrderRepository {
         return jdbcTemplate.query(sql, this::mapRowItem, orderId);
     }
 
-    public void updateOrderItemFulfillment(String orderId, String productId, int fulfillQty) { // รับ String IDs
-        jdbcTemplate.update("UPDATE OrderItem SET fulfilled_qty = fulfilled_qty + ? WHERE order_id = ? AND product_id = ?", fulfillQty, orderId, productId);
+    public void updateOrderItemFulfillment(String orderId, String productId, int fulfillQty) {
+        // 1. อัปเดตจำนวนที่เบิกแล้วในตาราง OrderItem (โค้ดเดิมของคุณ)
+        jdbcTemplate.update(
+                "UPDATE OrderItem SET fulfilled_qty = fulfilled_qty + ? WHERE order_id = ? AND product_id = ?",
+                fulfillQty,
+                orderId,
+                productId
+        );
+
+        // 2. อัปเดตสถานะของ Order หลักในตาราง Orders ให้เป็น 'Pending'
+        jdbcTemplate.update(
+                "UPDATE \"Order\" SET status = 'Pending' WHERE order_id = ?",
+                orderId
+        );
     }
 
     public boolean areAllOrderItemsFulfilled(String orderId) { // รับ String orderId
@@ -93,7 +106,7 @@ public class OrderRepository {
 
     public List<Order> findOrdersReadyToClose() {
         String sql = "SELECT o.order_id, o.order_date, o.total_amount, o.status, o.customer_id, o.staff_id " +
-                "FROM \"Order\" AS o WHERE o.status = 'Confirmed' " +
+                "FROM \"Order\" AS o WHERE o.status = 'Pending' " +
                 "AND NOT EXISTS (SELECT 1 FROM OrderItem AS oi WHERE oi.order_id = o.order_id AND oi.remaining_qty > 0)";
         return jdbcTemplate.query(sql, this::mapRow);
     }

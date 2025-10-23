@@ -107,7 +107,8 @@ public class StockService {
 
     // แก้ไข: เปลี่ยน Type ของ ID ทั้งหมดเป็น String
     private void checkAndUpdateRequestAndOrderStatus(String requestId, String productId, int fulfillQty) {
-        requestRepository.updateRequestStatus(requestId, "Pending");
+            requestRepository.updateRequestStatus(requestId, "Pending");
+
 
         Request request = requestRepository.findById(requestId);
         if (request != null && request.getOrderId() != null) {
