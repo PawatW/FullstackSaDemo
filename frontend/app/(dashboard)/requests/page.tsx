@@ -13,6 +13,24 @@ interface DraftRequestItem {
   quantity: number;
 }
 
+const parseDateTime = (value?: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getTimeValue = (value?: string | null) => {
+  const date = parseDateTime(value);
+  return date ? date.getTime() : 0;
+};
+
+const formatDateTime = (value?: string | null, pattern = 'dd MMM yyyy HH:mm') => {
+  const date = parseDateTime(value);
+  return date ? format(date, pattern) : '-';
+};
+
 export default function RequestsPage() {
   const { role, token, staffId } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -105,13 +123,14 @@ export default function RequestsPage() {
   const orderOptions = useMemo<SearchableOption[]>(() => {
     const data = confirmedOrders ?? [];
     return [...data]
-      .sort((a, b) => b.orderDate - a.orderDate)
+      .sort((a, b) => getTimeValue(b.orderDate) - getTimeValue(a.orderDate))
       .map((order) => {
         const customerName = customerById.get(order.customerId)?.customerName;
         const customerLabel = customerName ? `${customerName} (${order.customerId})` : order.customerId;
-        const formattedDate = order.orderDate ? format(new Date(order.orderDate), 'dd MMM yyyy') : null;
+        const formattedDate = formatDateTime(order.orderDate, 'dd MMM yyyy');
+        const dateDetail = formattedDate === '-' ? null : `วันที่ ${formattedDate}`;
         const details = [
-          formattedDate ? `วันที่ ${formattedDate}` : null,
+          dateDetail,
           order.status ? `สถานะ ${order.status}` : null,
           order.staffId ? `ผู้รับผิดชอบ ${order.staffId}` : null
         ]
@@ -180,7 +199,7 @@ export default function RequestsPage() {
 
   const sortedPendingRequests = useMemo(() => {
     const data = pendingRequests ?? [];
-    return [...data].sort((a, b) => b.requestDate - a.requestDate);
+    return [...data].sort((a, b) => getTimeValue(b.requestDate) - getTimeValue(a.requestDate));
   }, [pendingRequests]);
 
   const filteredPendingRequests = useMemo(() => {
@@ -205,7 +224,7 @@ export default function RequestsPage() {
 
   const sortedApprovedRequests = useMemo(() => {
     const data = approvedRequests ?? [];
-    return [...data].sort((a, b) => b.requestDate - a.requestDate);
+    return [...data].sort((a, b) => getTimeValue(b.requestDate) - getTimeValue(a.requestDate));
   }, [approvedRequests]);
 
   // const filteredWarehouseRequests = useMemo(() => {
@@ -230,7 +249,7 @@ export default function RequestsPage() {
 
   const sortedAllRequests = useMemo(() => {
     const data = allRequests ?? [];
-    return [...data].sort((a, b) => b.requestDate - a.requestDate);
+    return [...data].sort((a, b) => getTimeValue(b.requestDate) - getTimeValue(a.requestDate));
   }, [allRequests]);
 
   const filteredAllRequests = useMemo(() => {
@@ -258,9 +277,10 @@ export default function RequestsPage() {
     return data.map((request) => {
       const customerName = customerById.get(request.customerId ?? '')?.customerName;
       const customerLabel = customerName ? `${customerName} (${request.customerId})` : request.customerId;
-      const formattedDate = request.requestDate ? format(new Date(request.requestDate), 'dd MMM yyyy HH:mm') : null;
+      const formattedDate = formatDateTime(request.requestDate);
+      const dateDetail = formattedDate === '-' ? null : `วันที่ ${formattedDate}`;
       const details = [
-        formattedDate ? `วันที่ ${formattedDate}` : null,
+        dateDetail,
         `Order ${request.orderId ?? '-'}`,
         `ผู้ร้องขอ ${request.staffId ?? '-'}`
       ]
@@ -373,7 +393,7 @@ export default function RequestsPage() {
     if (role !== 'TECHNICIAN') return []; // Only calculate if relevant
     return data
       .filter((request) => request.staffId === staffId)
-      .sort((a, b) => b.requestDate - a.requestDate);
+      .sort((a, b) => getTimeValue(b.requestDate) - getTimeValue(a.requestDate));
   }, [allRequests, staffId, role]);
 
 
@@ -658,7 +678,6 @@ export default function RequestsPage() {
       request: {
         orderId,
         customerId,
-        requestDate: Date.now(),
         status: 'Awaiting Approval',
         description
       },
@@ -988,22 +1007,22 @@ export default function RequestsPage() {
                 </div>
 
                 <div className="mt-6 space-y-6 text-sm text-slate-700">
-                  <div className="space-y-3">
-                <label className="text-xs font-medium text-slate-500">ค้นหาและเลือกคำขอที่ต้องการเบิก</label>
-                <SearchableSelect
-                  name="warehouseRequestId"
-                  value={warehouseModalRequestId ?? ''}
-                  onChange={(value) => setWarehouseModalRequestId(value)}
-                  options={[{ value: '', label: 'เลือกคำขอ' }, ...warehouseRequestOptions]}
-                  placeholder="เลือกคำขอที่ต้องการเบิก"
-                  searchPlaceholder="ค้นหาด้วยรหัสคำขอ, Order, ลูกค้า..."
-                  emptyMessage="ไม่พบคำขอที่อนุมัติ"
-                  disabled={warehouseRequestOptions.length === 0}
-                />
-                {warehouseRequestOptions.length === 0 && (
-                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ยังไม่มีคำขอที่อนุมัติให้เบิก</p>
-                )}
-              </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-medium text-slate-500">ค้นหาและเลือกคำขอที่ต้องการเบิก</label>
+                  <SearchableSelect
+                    name="warehouseRequestId"
+                    value={warehouseModalRequestId ?? ''}
+                    onChange={(value) => setWarehouseModalRequestId(value)}
+                    options={[{ value: '', label: 'เลือกคำขอ' }, ...warehouseRequestOptions]}
+                    placeholder="เลือกคำขอที่ต้องการเบิก"
+                    searchPlaceholder="ค้นหาด้วยรหัสคำขอ, Order, ลูกค้า..."
+                    emptyMessage="ไม่พบคำขอที่อนุมัติ"
+                    disabled={warehouseRequestOptions.length === 0}
+                  />
+                  {warehouseRequestOptions.length === 0 && (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ยังไม่มีคำขอที่อนุมัติให้เบิก</p>
+                  )}
+                </div>
                   {warehouseActiveRequest && (
                     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
                       <div>
@@ -1014,7 +1033,7 @@ export default function RequestsPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-600">วันที่ร้องขอ</p>
-                      <p className="mt-1 text-slate-800">{format(new Date(warehouseActiveRequest.requestDate), 'dd MMM yyyy HH:mm')}</p>
+                      <p className="mt-1 text-slate-800">{formatDateTime(warehouseActiveRequest.requestDate)}</p>
                     </div>
                     <div>
                       <p className="font-semibold text-slate-600">ผู้ร้องขอ</p>
@@ -1176,7 +1195,7 @@ export default function RequestsPage() {
                             <div>
                               <p className="text-sm font-semibold text-slate-800">{selectedOrder.orderId}</p>
                               <p className="text-slate-500">
-                                วันที่ {format(new Date(selectedOrder.orderDate), 'dd MMM yyyy')} • สถานะ {selectedOrder.status}
+                                วันที่ {formatDateTime(selectedOrder.orderDate, 'dd MMM yyyy')} • สถานะ {selectedOrder.status}
                               </p>
                             </div>
                             <button
@@ -1396,7 +1415,7 @@ export default function RequestsPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-slate-600">วันที่ Order</p>
-                    <p className="mt-1 text-slate-800">{format(new Date(previewOrder.orderDate), 'dd MMM yyyy HH:mm')}</p>
+                    <p className="mt-1 text-slate-800">{formatDateTime(previewOrder.orderDate)}</p>
                   </div>
                   <div>
                     <p className="font-semibold text-slate-600">ลูกค้า</p>
@@ -1495,7 +1514,7 @@ export default function RequestsPage() {
                       <p className="font-semibold text-slate-800">{request.requestId}</p>
                       <p className="text-xs text-slate-500">Order: {request.orderId || '-'} • ขอโดย {request.staffId}</p>
                     </div>
-                    <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}</span>
+                    <span className="text-xs text-slate-400">{formatDateTime(request.requestDate)}</span>
                   </button>
                   {isExpanded && (
                     <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
@@ -1577,7 +1596,7 @@ export default function RequestsPage() {
                       Order: {request.orderId || '-'} • สถานะ: {request.status}
                     </p>
                   </div>
-                  <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}</span>
+                  <span className="text-xs text-slate-400">{formatDateTime(request.requestDate)}</span>
                 </button>
                 {isExpanded && (
                   <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
@@ -1637,7 +1656,7 @@ export default function RequestsPage() {
                   <p className="text-sm font-semibold text-slate-800">{request.requestId}</p>
                   <p className="mt-1 text-xs text-slate-500">Order: {request.orderId ?? '-'}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    วันที่ขอ: {format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}
+                  วันที่ขอ: {formatDateTime(request.requestDate)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">สถานะ: {displayStatus}</p>
                   <div className="mt-3 flex flex-col gap-2">
@@ -1672,7 +1691,7 @@ export default function RequestsPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">รายละเอียดคำขอที่พร้อมปิด</h2>
                   <p className="text-sm text-slate-500">
-                    {inspectedReadyRequest.requestId} • วันที่ {format(new Date(inspectedReadyRequest.requestDate), 'dd MMM yyyy HH:mm')} • สถานะ{' '}
+                    {inspectedReadyRequest.requestId} • วันที่ {formatDateTime(inspectedReadyRequest.requestDate)} • สถานะ{' '}
                     {statusOverrides.get(inspectedReadyRequest.requestId) ?? inspectedReadyRequest.status}
                   </p>
                 </div>
@@ -1790,7 +1809,7 @@ export default function RequestsPage() {
                     >
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">{request.requestId}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}
+                        {formatDateTime(request.requestDate)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{request.orderId ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{request.customerId ?? '-'}</td>
@@ -1822,7 +1841,7 @@ export default function RequestsPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">รายละเอียดคำขอ</h2>
                   <p className="text-sm text-slate-500">
-                    {inspectedAllRequest.requestId} • วันที่ {format(new Date(inspectedAllRequest.requestDate), 'dd MMM yyyy HH:mm')} • สถานะ {inspectedAllRequest.status}
+                    {inspectedAllRequest.requestId} • วันที่ {formatDateTime(inspectedAllRequest.requestDate)} • สถานะ {inspectedAllRequest.status}
                   </p>
                 </div>
                 <button

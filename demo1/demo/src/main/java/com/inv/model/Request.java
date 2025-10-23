@@ -5,7 +5,7 @@ import java.util.List;
 
 public class Request {
     private String requestId;     // แก้เป็น String
-    private Long requestDate;
+    private LocalDateTime requestDate;
     private String status;
     private String orderId;       // แก้เป็น String
     private String customerId;    // แก้เป็น String
@@ -32,8 +32,8 @@ public class Request {
     public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
 
     //... (Getters and Setters ที่เหลือ)
-    public Long getRequestDate() { return requestDate; }
-    public void setRequestDate(Long requestDate) { this.requestDate = requestDate; }
+    public LocalDateTime getRequestDate() { return requestDate; }
+    public void setRequestDate(LocalDateTime requestDate) { this.requestDate = requestDate; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

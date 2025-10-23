@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID; // Import เพิ่ม
 
@@ -27,7 +28,7 @@ public class OrderService {
         String orderId = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         order.setOrderId(orderId);
         order.setStaffId(staffId);
-        order.setOrderDate(System.currentTimeMillis());
+        order.setOrderDate(LocalDateTime.now());
         orderRepository.save(order);
 
         for (OrderItem item : items) {

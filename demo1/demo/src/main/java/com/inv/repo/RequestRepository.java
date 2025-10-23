@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -21,7 +22,7 @@ public class RequestRepository {
         Request r = new Request();
         r.setRequestId(rs.getString("request_id"));
         Timestamp requestTimestamp = rs.getTimestamp("request_date");
-        r.setRequestDate(requestTimestamp != null ? requestTimestamp.getTime() : null);
+        r.setRequestDate(requestTimestamp != null ? requestTimestamp.toLocalDateTime() : null);
         r.setStatus(rs.getString("status"));
         r.setOrderId(rs.getString("order_id"));
         r.setCustomerId(rs.getString("customer_id")); // เพิ่ม customer_id
@@ -58,12 +59,12 @@ public class RequestRepository {
     }
 
     public void save(Request r) {
-        long requestDate = r.getRequestDate() != null ? r.getRequestDate() : System.currentTimeMillis();
+        LocalDateTime requestDate = r.getRequestDate() != null ? r.getRequestDate() : LocalDateTime.now();
         String status = r.getStatus() != null ? r.getStatus() : "Awaiting Approval";
         jdbcTemplate.update(
                 "INSERT INTO request(request_id, request_date, status, order_id, customer_id, staff_id, description) VALUES (?,?,?,?,?,?,?)",
                 r.getRequestId(),
-                new Timestamp(requestDate),
+                Timestamp.valueOf(requestDate),
                 status,
                 r.getOrderId(),
                 r.getCustomerId(),

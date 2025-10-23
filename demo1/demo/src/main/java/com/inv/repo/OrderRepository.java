@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -21,7 +22,7 @@ public class OrderRepository {
         Order o = new Order();
         o.setOrderId(rs.getString("order_id")); // rs.getString
         Timestamp orderTimestamp = rs.getTimestamp("order_date");
-        o.setOrderDate(orderTimestamp != null ? orderTimestamp.getTime() : null);
+        o.setOrderDate(orderTimestamp != null ? orderTimestamp.toLocalDateTime() : null);
         o.setTotalAmount(rs.getBigDecimal("total_amount"));
         o.setStatus(rs.getString("status"));
         o.setCustomerId(rs.getString("customer_id")); // rs.getString
@@ -49,11 +50,11 @@ public class OrderRepository {
     }
 
     public void save(Order o) {
-        long orderDate = o.getOrderDate() != null ? o.getOrderDate() : System.currentTimeMillis();
+        LocalDateTime orderDate = o.getOrderDate() != null ? o.getOrderDate() : LocalDateTime.now();
         jdbcTemplate.update(
                 "INSERT INTO \"Order\"(order_id, order_date, total_amount, status, customer_id, staff_id) VALUES (?,?,?,?,?,?)",
                 o.getOrderId(),
-                new Timestamp(orderDate),
+                Timestamp.valueOf(orderDate),
                 o.getTotalAmount(),
                 o.getStatus(),
                 o.getCustomerId(),

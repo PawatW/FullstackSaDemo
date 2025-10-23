@@ -13,6 +13,24 @@ interface DraftItem {
   quantity: number;
 }
 
+const parseDateTime = (value?: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getTimeValue = (value?: string | null) => {
+  const date = parseDateTime(value);
+  return date ? date.getTime() : 0;
+};
+
+const formatDateTime = (value?: string | null, pattern = 'dd MMM yyyy') => {
+  const date = parseDateTime(value);
+  return date ? format(date, pattern) : '-';
+};
+
 export default function OrdersPage() {
   const { role, token } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +100,7 @@ export default function OrdersPage() {
 
   const sortedConfirmedOrders = useMemo(() => {
     const data = confirmedOrders ?? [];
-    return [...data].sort((a, b) => b.orderDate - a.orderDate);
+    return [...data].sort((a, b) => getTimeValue(b.orderDate) - getTimeValue(a.orderDate));
   }, [confirmedOrders]);
 
   const filteredConfirmedOrders = useMemo(() => {
@@ -171,7 +189,6 @@ export default function OrdersPage() {
 
     const payload = {
       order: {
-        orderDate: Date.now(),
         customerId,
         status,
         totalAmount
@@ -472,7 +489,7 @@ export default function OrdersPage() {
                     >
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.orderId}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {format(new Date(order.orderDate), 'dd MMM yyyy')}
+                        {formatDateTime(order.orderDate, 'dd MMM yyyy')}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{order.customerId}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">
@@ -502,7 +519,7 @@ export default function OrdersPage() {
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">รายละเอียด {inspectedOrder.orderId}</h3>
                 <p className="text-xs text-slate-500">
-                  ลูกค้า {inspectedOrder.customerId} • วันที่ {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                  ลูกค้า {inspectedOrder.customerId} • วันที่ {formatDateTime(inspectedOrder.orderDate, 'dd MMM yyyy')}
                 </p>
               </div>
               <button
@@ -565,7 +582,7 @@ export default function OrdersPage() {
                   {inspectedOrder ? (
                     <p className="text-sm text-slate-500">
                       {inspectedOrder.orderId} • ลูกค้า {inspectedOrder.customerId} • วันที่{' '}
-                      {format(new Date(inspectedOrder.orderDate), 'dd MMM yyyy')}
+                      {formatDateTime(inspectedOrder.orderDate, 'dd MMM yyyy')}
                     </p>
                   ) : (
                     <p className="text-sm text-slate-500">กำลังโหลดข้อมูล Order...</p>
@@ -630,7 +647,7 @@ export default function OrdersPage() {
                 <div key={order.orderId} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-sm font-semibold text-slate-800">{order.orderId}</p>
                   <p className="mt-1 text-xs text-slate-500">ลูกค้า: {order.customerId}</p>
-                  <p className="mt-1 text-xs text-slate-500">วันที่: {format(new Date(order.orderDate), 'dd MMM yyyy HH:mm')}</p>
+                  <p className="mt-1 text-xs text-slate-500">วันที่: {formatDateTime(order.orderDate, 'dd MMM yyyy HH:mm')}</p>
                   <p className="mt-1 text-xs text-slate-500">สถานะ: {order.status}</p>
                   <p className="mt-1 text-xs text-slate-500">ยอดรวม: ฿{Number(order.totalAmount).toLocaleString()}</p>
                   <div className="mt-3 flex flex-col gap-2">
@@ -666,7 +683,7 @@ export default function OrdersPage() {
                   <h2 className="text-lg font-semibold text-slate-900">รายละเอียด Order ที่พร้อมปิด</h2>
                   <p className="text-sm text-slate-500">
                     {inspectedReadyOrder.orderId} • ลูกค้า {inspectedReadyOrder.customerId} • วันที่{' '}
-                    {format(new Date(inspectedReadyOrder.orderDate), 'dd MMM yyyy HH:mm')}
+                    {formatDateTime(inspectedReadyOrder.orderDate, 'dd MMM yyyy HH:mm')}
                   </p>
                 </div>
                 <button
@@ -745,7 +762,7 @@ export default function OrdersPage() {
                 {allOrders.map((order) => (
                   <tr key={order.orderId}>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{order.orderId}</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">{format(new Date(order.orderDate), 'dd MMM yyyy')}</td>
+                    <td className="px-4 py-3 text-sm text-slate-500">{formatDateTime(order.orderDate, 'dd MMM yyyy')}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{order.customerId}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">฿{Number(order.totalAmount).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-700">{order.status}</td>

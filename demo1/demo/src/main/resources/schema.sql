@@ -52,7 +52,7 @@ CREATE TABLE Staff (
 -- ========================
 CREATE TABLE "Order" (
     order_id VARCHAR(20) PRIMARY KEY,
-    order_date DATE NOT NULL,
+    order_date TIMESTAMP NOT NULL,
     total_amount DECIMAL(12,2) DEFAULT 0 CHECK (total_amount >= 0),
     status VARCHAR(50) DEFAULT 'Pending',
     customer_id VARCHAR(20) REFERENCES Customer(customer_id),
@@ -77,7 +77,7 @@ CREATE TABLE OrderItem (
 -- ========================
 CREATE TABLE Request (
     request_id VARCHAR(20) PRIMARY KEY,
-    request_date DATE NOT NULL,
+    request_date TIMESTAMP NOT NULL,
     status VARCHAR(50) DEFAULT 'Awaiting Approval',
     order_id VARCHAR(20) REFERENCES "Order"(order_id),
     customer_id VARCHAR(20) REFERENCES Customer(customer_id),
