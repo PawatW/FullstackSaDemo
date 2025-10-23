@@ -1397,10 +1397,6 @@ button:disabled {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .md\:grid-cols-\[minmax\(0\2c 3fr\)_minmax\(0\2c 2fr\)\] {
-    grid-template-columns: minmax(0,3fr) minmax(0,2fr);
-  }
-
   .md\:flex-row {
     flex-direction: row;
   }

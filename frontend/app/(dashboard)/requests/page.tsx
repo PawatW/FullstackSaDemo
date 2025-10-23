@@ -27,7 +27,7 @@ export default function RequestsPage() {
   const [createOrderSearch, setCreateOrderSearch] = useState('');
   const [technicianExpandedRequestId, setTechnicianExpandedRequestId] = useState<string | null>(null);
   const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
-  const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
+  // const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [orderPreviewId, setOrderPreviewId] = useState<string | null>(null);
@@ -200,25 +200,25 @@ export default function RequestsPage() {
     return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
   }, [approvedRequests]);
 
-  const filteredWarehouseRequests = useMemo(() => {
-    const query = warehouseRequestSearch.trim().toLowerCase();
-    if (!query) {
-      return sortedApprovedRequests;
-    }
-    return sortedApprovedRequests.filter((request) => {
-      const haystack = [
-        request.requestId,
-        request.orderId ?? '',
-        request.customerId ?? '',
-        request.staffId ?? '',
-        request.status ?? '',
-        request.description ?? ''
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [sortedApprovedRequests, warehouseRequestSearch]);
+  // const filteredWarehouseRequests = useMemo(() => {
+  //   const query = warehouseRequestSearch.trim().toLowerCase();
+  //   if (!query) {
+  //     return sortedApprovedRequests;
+  //   }
+  //   return sortedApprovedRequests.filter((request) => {
+  //     const haystack = [
+  //       request.requestId,
+  //       request.orderId ?? '',
+  //       request.customerId ?? '',
+  //       request.staffId ?? '',
+  //       request.status ?? '',
+  //       request.description ?? ''
+  //     ]
+  //       .join(' ')
+  //       .toLowerCase();
+  //     return haystack.includes(query);
+  //   });
+  // }, [sortedApprovedRequests, warehouseRequestSearch]);
 
   const sortedAllRequests = useMemo(() => {
     const data = allRequests ?? [];
@@ -244,6 +244,29 @@ export default function RequestsPage() {
       return haystack.includes(query);
     });
   }, [sortedAllRequests, allRequestsSearch]);
+
+  const warehouseRequestOptions = useMemo<SearchableOption[]>(() => {
+    const data = sortedApprovedRequests ?? [];
+    return data.map((request) => {
+      const customerName = customerById.get(request.customerId ?? '')?.customerName;
+      const customerLabel = customerName ? `${customerName} (${request.customerId})` : request.customerId;
+      const formattedDate = request.requestDate ? format(new Date(request.requestDate), 'dd MMM yyyy') : null;
+      const details = [
+        formattedDate ? `วันที่ ${formattedDate}` : null,
+        `Order ${request.orderId ?? '-'}`,
+        `ผู้ร้องขอ ${request.staffId ?? '-'}`
+      ]
+        .filter(Boolean)
+        .join(' • ');
+
+      return {
+        value: request.requestId,
+        label: `${request.requestId} • ลูกค้า ${customerLabel ?? '-'}`,
+        description: details || undefined,
+        keywords: [request.requestId, request.orderId ?? '', request.customerId ?? '', customerName ?? '', request.staffId ?? '', request.description ?? '']
+      } satisfies SearchableOption;
+    });
+  }, [sortedApprovedRequests, customerById]);
 
   const inspectedAllRequest = useMemo(() => {
     if (!inspectedAllRequestId) {
@@ -361,6 +384,7 @@ export default function RequestsPage() {
     loadExistingTotals(selectedOrderId)
       .then((totals) => {
         if (!cancelled) {
+          console.log('--- TEST: 1. existingRequestTotals (Map) ---', totals);
           setExistingRequestTotals(totals);
           setExistingTotalsError(null);
         }
@@ -426,6 +450,7 @@ export default function RequestsPage() {
         label
       });
     });
+    console.log('--- TEST: 2. productOptions (Array) ---', options);
     return options;
   }, [products, orderItemsForSelectedOrder, existingRequestTotals, selectedOrderId, hasOrderItemsError]);
 
@@ -789,7 +814,6 @@ export default function RequestsPage() {
               onClick={() => {
                 setError(null);
                 setSuccessMessage(null);
-                setWarehouseRequestSearch('');
                 setFulfillQuantities({});
                 setFulfilling({});
                 if (sortedApprovedRequests.length > 0) {
@@ -821,10 +845,10 @@ export default function RequestsPage() {
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">รายการคำขอสำหรับเบิก</h2>
                   {warehouseActiveRequest ? (
-                    <p className="text-sm text-slate-500">
-                      {warehouseActiveRequest.requestId} • Order {warehouseActiveRequest.orderId ?? '-'} • ลูกค้า {warehouseActiveRequest.customerId ?? '-'}
-                    </p>
-                  ) : filteredWarehouseRequests.length === 0 ? (
+                      <p className="text-sm text-slate-500">
+                        {warehouseActiveRequest.requestId} • Order {warehouseActiveRequest.orderId ?? '-'} • ลูกค้า {warehouseActiveRequest.customerId ?? '-'}
+                      </p>
+                    ) : warehouseRequestOptions.length === 0 ? (
                     <p className="text-sm text-slate-500">ยังไม่มีคำขอที่ตรงกับคำค้นหา</p>
                   ) : (
                     <p className="text-sm text-slate-500">เลือกคำขอที่ต้องการจากเมนูด้านล่าง</p>
@@ -835,7 +859,6 @@ export default function RequestsPage() {
                   onClick={() => {
                     setWarehouseModalOpen(false);
                     setWarehouseModalRequestId('');
-                    setWarehouseRequestSearch('');
                     setFulfillQuantities({});
                     setFulfilling({});
                   }}
@@ -847,38 +870,21 @@ export default function RequestsPage() {
 
                 <div className="mt-6 space-y-6 text-sm text-slate-700">
                   <div className="space-y-3">
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-slate-500">ค้นหาคำขอที่อนุมัติ</label>
-                        <input
-                          type="text"
-                          value={warehouseRequestSearch}
-                          onChange={(event) => setWarehouseRequestSearch(event.target.value)}
-                          placeholder="ค้นหาด้วยรหัสคำขอ ลูกค้า หรือคำอธิบาย"
-                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-slate-500">เลือกคำขอที่ต้องการเบิก</label>
-                        <select
-                          value={warehouseModalRequestId ?? ''}                           onChange={(event) => setWarehouseModalRequestId(event.target.value)}
-                          disabled={filteredWarehouseRequests.length === 0}
-                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                        >
-                          <option value="">เลือกคำขอ</option>
-                          {filteredWarehouseRequests.map((request) => (
-                            <option key={request.requestId} value={request.requestId}>
-                              {request.requestId} • ลูกค้า {request.customerId ?? '-'}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    {filteredWarehouseRequests.length === 0 && (
-                      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ไม่พบคำขอที่ตรงกับคำค้นหา</p>
-                    )}
-                  </div>
-
+                <label className="text-xs font-medium text-slate-500">ค้นหาและเลือกคำขอที่ต้องการเบิก</label>
+                <SearchableSelect
+                  name="warehouseRequestId"
+                  value={warehouseModalRequestId ?? ''}
+                  onChange={(value) => setWarehouseModalRequestId(value)}
+                  options={[{ value: '', label: 'เลือกคำขอ' }, ...warehouseRequestOptions]}
+                  placeholder="เลือกคำขอที่ต้องการเบิก"
+                  searchPlaceholder="ค้นหาด้วยรหัสคำขอ, Order, ลูกค้า..."
+                  emptyMessage="ไม่พบคำขอที่อนุมัติ"
+                  disabled={warehouseRequestOptions.length === 0}
+                />
+                {warehouseRequestOptions.length === 0 && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ยังไม่มีคำขอที่อนุมัติให้เบิก</p>
+                )}
+              </div>
                   {warehouseActiveRequest && (
                     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
                       <div>
