@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 
 @Repository
@@ -19,7 +20,8 @@ public class RequestRepository {
     private Request mapRow(ResultSet rs, int rowNum) throws SQLException {
         Request r = new Request();
         r.setRequestId(rs.getString("request_id"));
-        r.setRequestDate(rs.getDate("request_date").toLocalDate());
+        Timestamp requestTimestamp = rs.getTimestamp("request_date");
+        r.setRequestDate(requestTimestamp != null ? requestTimestamp.getTime() : null);
         r.setStatus(rs.getString("status"));
         r.setOrderId(rs.getString("order_id"));
         r.setCustomerId(rs.getString("customer_id")); // เพิ่ม customer_id
@@ -56,9 +58,17 @@ public class RequestRepository {
     }
 
     public void save(Request r) {
+        long requestDate = r.getRequestDate() != null ? r.getRequestDate() : System.currentTimeMillis();
+        String status = r.getStatus() != null ? r.getStatus() : "Awaiting Approval";
         jdbcTemplate.update(
-                "INSERT INTO request(request_id, request_date, status, order_id, customer_id, staff_id, description) VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?)",
-                r.getRequestId(), "Awaiting Approval", r.getOrderId(), r.getCustomerId(), r.getStaffId(), r.getDescription()
+                "INSERT INTO request(request_id, request_date, status, order_id, customer_id, staff_id, description) VALUES (?,?,?,?,?,?,?)",
+                r.getRequestId(),
+                new Timestamp(requestDate),
+                status,
+                r.getOrderId(),
+                r.getCustomerId(),
+                r.getStaffId(),
+                r.getDescription()
         );
     }
 

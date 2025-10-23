@@ -47,7 +47,7 @@ export interface OrderItem {
 
 export interface Order {
   orderId: string;
-  orderDate: string;
+  orderDate: number;
   totalAmount: number;
   status: string;
   customerId: string;
@@ -66,7 +66,7 @@ export interface RequestItem {
 
 export interface Request {
   requestId: string;
-  requestDate: string;
+  requestDate: number;
   status: string;
   orderId?: string;
   customerId?: string;

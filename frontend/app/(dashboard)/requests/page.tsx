@@ -28,7 +28,7 @@ export default function RequestsPage() {
   const [technicianExpandedRequestId, setTechnicianExpandedRequestId] = useState<string | null>(null);
   const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
   // const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
-  const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
+  const [isFulfillSubmitting, setFulfillSubmitting] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [orderPreviewId, setOrderPreviewId] = useState<string | null>(null);
   const [isOrderPreviewOpen, setOrderPreviewOpen] = useState(false);
@@ -38,6 +38,9 @@ export default function RequestsPage() {
   const [isAllRequestModalOpen, setAllRequestModalOpen] = useState(false);
   const [existingRequestTotals, setExistingRequestTotals] = useState<Map<string, number>>(() => new Map());
   const [existingTotalsError, setExistingTotalsError] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(() => new Map());
+  const [inspectedReadyRequestId, setInspectedReadyRequestId] = useState<string | null>(null);
+  const [isReadyRequestModalOpen, setReadyRequestModalOpen] = useState(false);
   const [isLoadingExistingTotals, setLoadingExistingTotals] = useState(false);
 
   const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
@@ -63,6 +66,11 @@ export default function RequestsPage() {
   const { data: warehouseModalItems, isLoading: isWarehouseItemsLoading } = useAuthedSWR<RequestItem[]>(
     warehouseModalRequestId ? `/requests/${warehouseModalRequestId}/items` : null,
     token
+  );
+  const { data: readyRequestItems, isLoading: isReadyRequestItemsLoading } = useAuthedSWR<RequestItem[]>(
+    inspectedReadyRequestId ? `/requests/${inspectedReadyRequestId}/items` : null,
+    token,
+    { revalidateOnFocus: false }
   );
   const { data: foremanRequestItems } = useAuthedSWR<RequestItem[]>(
     foremanExpandedRequestId ? `/requests/${foremanExpandedRequestId}/items` : null,
@@ -97,7 +105,7 @@ export default function RequestsPage() {
   const orderOptions = useMemo<SearchableOption[]>(() => {
     const data = confirmedOrders ?? [];
     return [...data]
-      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .sort((a, b) => b.orderDate - a.orderDate)
       .map((order) => {
         const customerName = customerById.get(order.customerId)?.customerName;
         const customerLabel = customerName ? `${customerName} (${order.customerId})` : order.customerId;
@@ -172,7 +180,7 @@ export default function RequestsPage() {
 
   const sortedPendingRequests = useMemo(() => {
     const data = pendingRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [pendingRequests]);
 
   const filteredPendingRequests = useMemo(() => {
@@ -197,7 +205,7 @@ export default function RequestsPage() {
 
   const sortedApprovedRequests = useMemo(() => {
     const data = approvedRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [approvedRequests]);
 
   // const filteredWarehouseRequests = useMemo(() => {
@@ -222,7 +230,7 @@ export default function RequestsPage() {
 
   const sortedAllRequests = useMemo(() => {
     const data = allRequests ?? [];
-    return [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+    return [...data].sort((a, b) => b.requestDate - a.requestDate);
   }, [allRequests]);
 
   const filteredAllRequests = useMemo(() => {
@@ -250,7 +258,7 @@ export default function RequestsPage() {
     return data.map((request) => {
       const customerName = customerById.get(request.customerId ?? '')?.customerName;
       const customerLabel = customerName ? `${customerName} (${request.customerId})` : request.customerId;
-      const formattedDate = request.requestDate ? format(new Date(request.requestDate), 'dd MMM yyyy') : null;
+      const formattedDate = request.requestDate ? format(new Date(request.requestDate), 'dd MMM yyyy HH:mm') : null;
       const details = [
         formattedDate ? `วันที่ ${formattedDate}` : null,
         `Order ${request.orderId ?? '-'}`,
@@ -275,14 +283,18 @@ export default function RequestsPage() {
     return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
   }, [sortedAllRequests, inspectedAllRequestId]);
   const warehouseActiveRequest = useMemo(() => {
-  if (!warehouseModalRequestId) {
-    return null;
-  }
-  // vvv CHANGE THIS LINE vvv
-  return (sortedApprovedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
-}, [sortedApprovedRequests, warehouseModalRequestId]);
+    if (!warehouseModalRequestId) {
+      return null;
+    }
+    return (sortedApprovedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+  }, [sortedApprovedRequests, warehouseModalRequestId]);
 
-  const warehouseActiveItems = warehouseModalItems ?? [];
+  const inspectedReadyRequest = useMemo(() => {
+    if (!inspectedReadyRequestId) {
+      return null;
+    }
+    return (readyToClose ?? []).find((request) => request.requestId === inspectedReadyRequestId) ?? null;
+  }, [readyToClose, inspectedReadyRequestId]);
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
@@ -305,12 +317,63 @@ export default function RequestsPage() {
     return map;
   }, [products]);
 
+  const warehouseActiveItems = warehouseModalItems ?? [];
+  const canFulfillAny = useMemo(() => {
+    if (warehouseActiveItems.length === 0) {
+      return false;
+    }
+    return warehouseActiveItems.some((item) => {
+      if (item.remainingQty <= 0) {
+        return false;
+      }
+      const product = productById.get(item.productId);
+      const stockAvailable = product?.quantity ?? 0;
+      return stockAvailable > 0;
+    });
+  }, [warehouseActiveItems, productById]);
+
+  useEffect(() => {
+    if (statusOverrides.size === 0) {
+      return;
+    }
+    setStatusOverrides((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      const next = new Map(prev);
+      let changed = false;
+      const findLatest = (requestId: string) =>
+        (sortedApprovedRequests ?? []).find((request) => request.requestId === requestId) ??
+        (readyToClose ?? []).find((request) => request.requestId === requestId) ??
+        (sortedAllRequests ?? []).find((request) => request.requestId === requestId) ??
+        null;
+      prev.forEach((status, requestId) => {
+        const latest = findLatest(requestId);
+        if (latest && latest.status === status) {
+          next.delete(requestId);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [statusOverrides, sortedApprovedRequests, readyToClose, sortedAllRequests]);
+
+  useEffect(() => {
+    if (
+      inspectedReadyRequestId &&
+      !(readyToClose ?? []).some((request) => request.requestId === inspectedReadyRequestId)
+    ) {
+      setInspectedReadyRequestId(null);
+      setReadyRequestModalOpen(false);
+    }
+  }, [inspectedReadyRequestId, readyToClose]);
+
   const technicianRequests = useMemo(() => {
     const data = allRequests ?? [];
     if (role !== 'TECHNICIAN') return []; // Only calculate if relevant
     return data
       .filter((request) => request.staffId === staffId)
-      .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+      .sort((a, b) => b.requestDate - a.requestDate);
   }, [allRequests, staffId, role]);
 
 
@@ -347,7 +410,6 @@ export default function RequestsPage() {
 
   useEffect(() => {
     setFulfillQuantities({});
-    setFulfilling({});
   }, [warehouseExpandedRequestId]);
 
   useEffect(() => {
@@ -534,7 +596,6 @@ export default function RequestsPage() {
       setError('กรุณาเลือก Order ที่ยืนยัน');
       return;
     }
-    const requestDate = String(formData.get('requestDate'));
     const description = String(formData.get('description') || '');
 
     const selectedOrder = confirmedOrders?.find((order) => order.orderId === orderId);
@@ -597,7 +658,7 @@ export default function RequestsPage() {
       request: {
         orderId,
         customerId,
-        requestDate,
+        requestDate: Date.now(),
         status: 'Awaiting Approval',
         description
       },
@@ -639,50 +700,98 @@ export default function RequestsPage() {
     }
   };
 
-  const handleFulfill = async (requestItem: RequestItem, fulfillQty: number) => {
-    if (!token) return;
-    const { requestItemId, remainingQty, productId } = requestItem;
-    if (fulfillQty <= 0) {
-      setError('จำนวนที่เบิกต้องมากกว่า 0');
+  const handleReadyRequestInspect = (requestId: string) => {
+    if (inspectedReadyRequestId === requestId) {
+      setInspectedReadyRequestId(null);
+      setReadyRequestModalOpen(false);
       return;
     }
-    if (fulfillQty > remainingQty) {
-      setError(`จำนวนที่เบิก (${fulfillQty}) เกินจำนวนที่ยังคงเหลือ (${remainingQty})`);
+    setInspectedReadyRequestId(requestId);
+    setReadyRequestModalOpen(true);
+  };
+
+  const handleFulfillAll = async () => {
+    if (!token || !warehouseActiveRequest) {
       return;
     }
-    const product = productById.get(productId);
-    if (!product) {
-      setError('ไม่พบข้อมูลสต็อกของสินค้านี้');
+    if (isFulfillSubmitting) {
       return;
     }
-    const stockAvailable = product.quantity ?? 0;
-    if (fulfillQty > stockAvailable) {
-      const productLabel = product.productName ? `${product.productName} (${product.productId})` : product.productId;
-      setError(`จำนวนที่เบิก (${fulfillQty}) เกินจำนวนคงเหลือในคลัง (${stockAvailable}) สำหรับ ${productLabel}`);
+
+    const prepared: { item: RequestItem; quantity: number }[] = [];
+    const insufficientLabels: string[] = [];
+
+    warehouseActiveItems.forEach((item) => {
+      if (item.remainingQty <= 0) {
+        return;
+      }
+      const product = productById.get(item.productId);
+      if (!product) {
+        insufficientLabels.push(item.productId);
+        return;
+      }
+      const stockAvailable = product.quantity ?? 0;
+      if (stockAvailable <= 0) {
+        const label = product.productName ? `${product.productName} (${product.productId})` : item.productId;
+        insufficientLabels.push(label);
+        return;
+      }
+      const maxQty = Math.min(item.remainingQty, stockAvailable);
+      if (maxQty <= 0) {
+        return;
+      }
+      const storedQty = fulfillQuantities[item.requestItemId];
+      const sanitized = storedQty !== undefined ? Math.trunc(storedQty) : maxQty;
+      const quantity = Math.min(maxQty, Math.max(1, sanitized || maxQty));
+      if (quantity <= 0) {
+        return;
+      }
+      prepared.push({ item, quantity });
+    });
+
+    if (prepared.length === 0) {
+      if (insufficientLabels.length > 0) {
+        setError(`สินค้าไม่เพียงพอ: ${insufficientLabels.join(', ')}`);
+      } else {
+        setError('ไม่มีรายการที่สามารถเบิกได้');
+      }
       return;
     }
+
     setError(null);
     setSuccessMessage(null);
-    setFulfilling((prev) => ({ ...prev, [requestItemId]: true }));
+    setFulfillSubmitting(true);
+
     try {
-      await apiFetch<void>('/stock/fulfill', {
-        method: 'POST',
-        body: JSON.stringify({ requestItemId, fulfillQty }),
-        token
-      });
+      for (const { item, quantity } of prepared) {
+        await apiFetch<void>('/stock/fulfill', {
+          method: 'POST',
+          body: JSON.stringify({ requestItemId: item.requestItemId, fulfillQty: quantity }),
+          token
+        });
+      }
+
       mutateApproved();
       mutateReady();
       mutateProducts();
-      setFulfillQuantities((prev) => {
-        const next = { ...prev };
-        delete next[requestItemId];
+
+      const statusMessage =
+        insufficientLabels.length > 0
+          ? `บันทึกการเบิกเรียบร้อย สถานะคำขอ: Pending (สินค้าไม่พอ: ${insufficientLabels.join(', ')})`
+          : 'บันทึกการเบิกเรียบร้อย สถานะคำขอ: Pending';
+      setSuccessMessage(statusMessage);
+      setStatusOverrides((prev) => {
+        const next = new Map(prev);
+        next.set(warehouseActiveRequest.requestId, 'Pending');
         return next;
       });
-      setSuccessMessage('บันทึกการเบิกเรียบร้อย');
+      setFulfillQuantities({});
+      setWarehouseModalOpen(false);
+      setWarehouseModalRequestId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถเบิกสินค้าได้');
     } finally {
-      setFulfilling((prev) => ({ ...prev, [requestItemId]: false }));
+      setFulfillSubmitting(false);
     }
   };
 
@@ -696,6 +805,18 @@ export default function RequestsPage() {
         token
       });
       mutateReady();
+      if (inspectedReadyRequestId === requestId) {
+        setReadyRequestModalOpen(false);
+        setInspectedReadyRequestId(null);
+      }
+      setStatusOverrides((prev) => {
+        if (!prev.has(requestId)) {
+          return prev;
+        }
+        const next = new Map(prev);
+        next.delete(requestId);
+        return next;
+      });
       setSuccessMessage('ปิดคำขอเรียบร้อย');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ไม่สามารถปิดคำขอได้');
@@ -815,7 +936,6 @@ export default function RequestsPage() {
                 setError(null);
                 setSuccessMessage(null);
                 setFulfillQuantities({});
-                setFulfilling({});
                 if (sortedApprovedRequests.length > 0) {
                   setWarehouseModalRequestId(sortedApprovedRequests[0].requestId);
                 } else {
@@ -858,9 +978,8 @@ export default function RequestsPage() {
                   type="button"
                   onClick={() => {
                     setWarehouseModalOpen(false);
-                    setWarehouseModalRequestId('');
+                    setWarehouseModalRequestId(null);
                     setFulfillQuantities({});
-                    setFulfilling({});
                   }}
                   className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
                 >
@@ -889,7 +1008,9 @@ export default function RequestsPage() {
                     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
                       <div>
                         <p className="font-semibold text-slate-600">สถานะ</p>
-                        <p className="mt-1 text-slate-800">{warehouseActiveRequest.status}</p>
+                        <p className="mt-1 text-slate-800">
+                          {statusOverrides.get(warehouseActiveRequest.requestId) ?? warehouseActiveRequest.status}
+                        </p>
                     </div>
                     <div>
                       <p className="font-semibold text-slate-600">วันที่ร้องขอ</p>
@@ -928,17 +1049,7 @@ export default function RequestsPage() {
                           const defaultQty = maxQty > 0 ? maxQty : 0;
                           const plannedQty = storedQty !== undefined ? storedQty : defaultQty;
                           const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
-                          const isProcessing = fulfilling[item.requestItemId];
                           const canFulfillItem = maxQty > 0;
-                          const disableActions = !canFulfillItem || isProcessing;
-                          let buttonLabel = 'บันทึกการเบิก';
-                          if (isProcessing) {
-                            buttonLabel = 'กำลังบันทึก...';
-                          } else if (maxByRequest <= 0) {
-                            buttonLabel = 'เบิกครบแล้ว';
-                          } else if (maxByStock <= 0) {
-                            buttonLabel = 'สต็อกไม่เพียงพอ';
-                          }
                           const productLabel = product?.productName
                             ? `${product.productName} (${product.productId})`
                             : item.productId;
@@ -960,7 +1071,8 @@ export default function RequestsPage() {
                                   <p className="text-xs text-rose-500">สต็อกสินค้าในคลังหมด ไม่สามารถเบิกได้</p>
                                 )}
                               </div>
-                              <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
+                              <div className="flex flex-col gap-2 text-xs md:w-40">
+                                <span className="text-xs font-medium text-slate-500">จำนวนที่จะเบิก</span>
                                 <input
                                   type="number"
                                   min={canFulfillItem ? 1 : 0}
@@ -975,24 +1087,15 @@ export default function RequestsPage() {
                                     const safeValue = Math.min(maxQty, Math.max(1, sanitized));
                                     setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: safeValue }));
                                   }}
-                                  disabled={disableActions}
-                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-32"
+                                  disabled={!canFulfillItem || isFulfillSubmitting}
+                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!canFulfillItem) {
-                                      return;
-                                    }
-                                    const sanitized = Math.trunc(quantityForInput);
-                                    const quantityToFulfill = Math.min(maxQty, Math.max(1, sanitized || maxQty));
-                                    handleFulfill(item, quantityToFulfill);
-                                  }}
-                                  disabled={disableActions}
-                                  className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                                >
-                                  {buttonLabel}
-                                </button>
+                                {canFulfillItem && maxQty < item.remainingQty && (
+                                  <p className="text-[11px] text-amber-600">สามารถเบิกได้สูงสุด {maxQty} ชิ้นตามสต็อกปัจจุบัน</p>
+                                )}
+                                {!canFulfillItem && (
+                                  <p className="text-[11px] text-slate-400">รอเติมสต็อกเพื่อดำเนินการเบิก</p>
+                                )}
                               </div>
                             </li>
                           );
@@ -1000,6 +1103,18 @@ export default function RequestsPage() {
                     </ul>
                   ) : (
                     <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">ยังไม่มีรายการสินค้า</p>
+                  )}
+                  {warehouseActiveRequest && warehouseActiveItems.length > 0 && (
+                    <div className="mt-4 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={handleFulfillAll}
+                        disabled={!canFulfillAny || isFulfillSubmitting}
+                        className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {isFulfillSubmitting ? 'กำลังบันทึก...' : 'ยืนยันบันทึกการเบิก'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1109,10 +1224,6 @@ export default function RequestsPage() {
                             )}
                         </div>
                       )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-500">วันที่ร้องขอ</label>
-                      <input name="requestDate" type="date" defaultValue={format(new Date(), 'yyyy-MM-dd')} required />
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <label className="text-xs font-medium text-slate-500">รายละเอียดเพิ่มเติม</label>
@@ -1384,7 +1495,7 @@ export default function RequestsPage() {
                       <p className="font-semibold text-slate-800">{request.requestId}</p>
                       <p className="text-xs text-slate-500">Order: {request.orderId || '-'} • ขอโดย {request.staffId}</p>
                     </div>
-                    <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy')}</span>
+                    <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}</span>
                   </button>
                   {isExpanded && (
                     <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
@@ -1466,7 +1577,7 @@ export default function RequestsPage() {
                       Order: {request.orderId || '-'} • สถานะ: {request.status}
                     </p>
                   </div>
-                  <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy')}</span>
+                  <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}</span>
                 </button>
                 {isExpanded && (
                   <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
@@ -1518,18 +1629,110 @@ export default function RequestsPage() {
             <p className="text-sm text-slate-500">ใช้ /requests/ready-to-close และ PUT /requests/{'{id}'}/close</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {(readyToClose ?? []).map((request) => (
-              <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">{request.requestId}</p>
-                <p className="mt-1 text-xs text-slate-500">Order: {request.orderId}</p>
-                <button onClick={() => handleCloseRequest(request.requestId)} className="mt-3 w-full bg-primary-600 py-2 text-xs font-semibold text-white">
-                  ปิดคำขอ
-                </button>
-              </div>
-            ))}
+            {(readyToClose ?? []).map((request) => {
+              const isInspected = inspectedReadyRequestId === request.requestId;
+              const displayStatus = statusOverrides.get(request.requestId) ?? request.status;
+              return (
+                <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-800">{request.requestId}</p>
+                  <p className="mt-1 text-xs text-slate-500">Order: {request.orderId ?? '-'}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    วันที่ขอ: {format(new Date(request.requestDate), 'dd MMM yyyy HH:mm')}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">สถานะ: {displayStatus}</p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleReadyRequestInspect(request.requestId)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                    >
+                      {isInspected ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCloseRequest(request.requestId)}
+                      className="w-full rounded-lg bg-primary-600 py-2 text-xs font-semibold text-white"
+                    >
+                      ปิดคำขอ
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
             {(readyToClose?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอที่พร้อมปิด</p>}
           </div>
         </section>
+      )}
+
+      {isReadyRequestModalOpen && inspectedReadyRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+            <div className="max-h-[85vh] overflow-y-auto p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">รายละเอียดคำขอที่พร้อมปิด</h2>
+                  <p className="text-sm text-slate-500">
+                    {inspectedReadyRequest.requestId} • วันที่ {format(new Date(inspectedReadyRequest.requestDate), 'dd MMM yyyy HH:mm')} • สถานะ{' '}
+                    {statusOverrides.get(inspectedReadyRequest.requestId) ?? inspectedReadyRequest.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReadyRequestModalOpen(false);
+                    setInspectedReadyRequestId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  ปิด
+                </button>
+              </div>
+              <div className="mt-6 space-y-4 text-sm text-slate-600">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 md:grid-cols-2">
+                  <div>
+                    <p className="font-semibold text-slate-600">Order</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyRequest.orderId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ลูกค้า</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyRequest.customerId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ผู้ร้องขอ</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyRequest.staffId ?? '-'}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-600">ผู้อนุมัติ</p>
+                    <p className="mt-1 text-slate-800">{inspectedReadyRequest.approvedBy ?? '-'}</p>
+                  </div>
+                </div>
+                {inspectedReadyRequest.description && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold text-slate-500">รายละเอียดเพิ่มเติม</p>
+                    <p className="mt-2 text-sm text-slate-700">{inspectedReadyRequest.description}</p>
+                  </div>
+                )}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+                  {isReadyRequestItemsLoading ? (
+                    <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการสินค้า...</p>
+                  ) : readyRequestItems && readyRequestItems.length > 0 ? (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                      {readyRequestItems.map((item) => (
+                        <li key={item.requestItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2">
+                          <span>{productById.get(item.productId)?.productName ?? item.productId}</span>
+                          <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">ยังไม่มีรายการสินค้าในคำขอนี้</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <section className="card space-y-4 p-6">

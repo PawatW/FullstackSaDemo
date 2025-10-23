@@ -1,12 +1,11 @@
 package com.inv.model;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public class Request {
     private String requestId;     // แก้เป็น String
-    private LocalDate requestDate;
+    private Long requestDate;
     private String status;
     private String orderId;       // แก้เป็น String
     private String customerId;    // แก้เป็น String
@@ -33,8 +32,8 @@ public class Request {
     public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
 
     //... (Getters and Setters ที่เหลือ)
-    public LocalDate getRequestDate() { return requestDate; }
-    public void setRequestDate(LocalDate requestDate) { this.requestDate = requestDate; }
+    public Long getRequestDate() { return requestDate; }
+    public void setRequestDate(Long requestDate) { this.requestDate = requestDate; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
