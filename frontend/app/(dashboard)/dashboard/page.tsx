@@ -69,52 +69,40 @@ export default function DashboardPage() {
         <div className="card p-6">
           <p className="text-sm font-medium text-slate-500">สินค้าทั้งหมด</p>
           <p className="mt-3 text-3xl font-semibold text-slate-900">{products?.length ?? 0}</p>
-          <p className="mt-2 text-xs text-slate-400">ข้อมูลมาจาก endpoint /products</p>
         </div>
         {isRole('TECHNICIAN', 'ADMIN', 'SALES') && (
           <div className="card p-6">
             <p className="text-sm font-medium text-slate-500">Order ที่ยืนยันแล้ว</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{confirmedOrders?.length ?? 0}</p>
-            <p className="mt-2 text-xs text-slate-400">ข้อมูลจาก /orders/confirmed</p>
           </div>
         )}
         {isRole('FOREMAN', 'ADMIN') && (
           <div className="card p-6">
             <p className="text-sm font-medium text-slate-500">คำขอรออนุมัติ</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{pendingRequests?.length ?? 0}</p>
-            <p className="mt-2 text-xs text-slate-400">ข้อมูลจาก /requests/pending</p>
           </div>
         )}
         {isRole('WAREHOUSE', 'ADMIN') && (
           <div className="card p-6">
             <p className="text-sm font-medium text-slate-500">คำขอรอจัดสินค้า</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{approvedRequests?.length ?? 0}</p>
-            <p className="mt-2 text-xs text-slate-400">ข้อมูลจาก /stock/approved-requests</p>
           </div>
         )}
         {isRole('ADMIN') && (
           <div className="card p-6">
             <p className="text-sm font-medium text-slate-500">ธุรกรรมสต็อก</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{stockTransactions?.length ?? 0}</p>
-            <p className="mt-2 text-xs text-slate-400">ข้อมูลจาก /stock/transactions</p>
           </div>
         )}
       </section>
 
       {tasks.length > 0 && (
         <section className="card space-y-4 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">งานตามบทบาท</h2>
-              <p className="text-sm text-slate-500">เลือกรายการเพื่อไปยังหน้าที่ต้องจัดการ</p>
-            </div>
-          </div>
           <div className="grid gap-4 md:grid-cols-2">
             {tasks.map((task) => (
               <Link key={task.href} href={task.href} className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-5 transition hover:border-primary-200 hover:bg-white">
                 <div>
                   <p className="text-sm font-semibold text-slate-700 group-hover:text-primary-600">{task.title}</p>
-                  <p className="mt-2 text-sm text-slate-500">{task.description}</p>
                 </div>
                 <span className="mt-4 text-xs font-medium text-primary-600">ไปยังหน้าดำเนินการ →</span>
               </Link>

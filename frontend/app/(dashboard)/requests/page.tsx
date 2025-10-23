@@ -858,7 +858,6 @@ export default function RequestsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Technician: สร้างคำขอเบิก</h2>
-              <p className="text-sm text-slate-500">POST /requests พร้อมรายการสินค้า</p>
             </div>
             <button
               type="button"
@@ -880,7 +879,7 @@ export default function RequestsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Warehouse: ดำเนินการเบิกสินค้า</h2>
-                <p className="text-sm text-slate-500">เลือกคำขอที่พร้อมให้เบิกจาก /stock/approved-requests เพื่อตัดสต็อก</p>
+              <p className="text-sm text-slate-500">เลือกคำขอที่พร้อมให้เบิกเพื่อตัดสต็อกจากคลัง</p>
             </div>
             <button
               type="button"
@@ -1417,7 +1416,7 @@ export default function RequestsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Foreman: รออนุมัติ</h2>
-              <p className="text-sm text-slate-500">แสดงรายการจาก /requests/pending และกดเพื่อดูรายละเอียดก่อนอนุมัติ</p>
+              <p className="text-sm text-slate-500">ตรวจสอบรายการที่รออนุมัติและกดเพื่อดูรายละเอียดก่อนตัดสินใจ</p>
             </div>
             <input
               type="search"
@@ -1691,7 +1690,7 @@ export default function RequestsPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">รายการคำขอทั้งหมด</h2>
-            <p className="text-sm text-slate-500">ดึงจาก /requests และเรียงตามวันที่ล่าสุดก่อน</p>
+            <p className="text-sm text-slate-500">เรียงตามวันที่ล่าสุดเพื่อให้ติดตามสถานะได้ง่าย</p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
             <input

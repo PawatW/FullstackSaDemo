@@ -123,7 +123,6 @@ export default function StockPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Stock Operations</h1>
-        <p className="text-sm text-slate-500">อ้างอิง StockController: /stock/in, /stock/approved-requests, /stock/transactions</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -135,7 +134,6 @@ export default function StockPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">บันทึกสินค้าเข้า (Stock-In)</h2>
-                <p className="text-sm text-slate-500">POST /stock/in พร้อม Supplier reference</p>
               </div>
               <button
                 type="button"
@@ -233,7 +231,6 @@ export default function StockPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">ประวัติธุรกรรมสต็อก</h2>
-              <p className="text-sm text-slate-500">ข้อมูลจาก GET /stock/transactions</p>
             </div>
             <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
               <input
