@@ -751,6 +751,10 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(254 243 199 / var(--tw-bg-opacity));
 }
+.bg-amber-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 251 235 / var(--tw-bg-opacity));
+}
 .bg-black\/40 {
   background-color: rgb(0 0 0 / 0.4);
 }
@@ -1342,10 +1346,6 @@ button:disabled {
     grid-column: span 4 / span 4;
   }
 
-  .md\:w-28 {
-    width: 7rem;
-  }
-
   .md\:w-32 {
     width: 8rem;
   }
@@ -1380,6 +1380,10 @@ button:disabled {
 
   .md\:grid-cols-5 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .md\:grid-cols-\[minmax\(0\2c 3fr\)_minmax\(0\2c 2fr\)\] {
+    grid-template-columns: minmax(0,3fr) minmax(0,2fr);
   }
 
   .md\:flex-row {

@@ -17,9 +17,6 @@ export default function SuppliersPage() {
   const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
   const [isDetailModalOpen, setDetailModalOpen] = useState(false);
 
-  const [supplierSearch, setSupplierSearch] = useState('');
-  const [inspectedSupplierId, setInspectedSupplierId] = useState<string | null>(null);
-  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
 
   const canCreate = role === 'SALES';
 

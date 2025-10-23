@@ -24,6 +24,8 @@ export default function RequestsPage() {
   const [formResetKey, setFormResetKey] = useState(0);
   const [fulfillQuantities, setFulfillQuantities] = useState<Record<string, number>>({});
   const [isWarehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [createOrderSearch, setCreateOrderSearch] = useState('');
+  const [technicianExpandedRequestId, setTechnicianExpandedRequestId] = useState<string | null>(null);
   const [warehouseModalRequestId, setWarehouseModalRequestId] = useState<string | null>(null);
   const [warehouseRequestSearch, setWarehouseRequestSearch] = useState('');
   const [fulfilling, setFulfilling] = useState<Record<string, boolean>>({});
@@ -68,6 +70,10 @@ export default function RequestsPage() {
     warehouseExpandedRequestId ? `/requests/${warehouseExpandedRequestId}/items` : null,
     token
   );
+  const { data: technicianRequestItems } = useAuthedSWR<RequestItem[]>(
+  technicianExpandedRequestId ? `/requests/${technicianExpandedRequestId}/items` : null,
+  token
+);
   const { data: allRequestItems } = useAuthedSWR<RequestItem[]>(
     inspectedAllRequestId ? `/requests/${inspectedAllRequestId}/items` : null,
     token,
@@ -229,6 +235,16 @@ export default function RequestsPage() {
     }
     return sortedAllRequests.find((request) => request.requestId === inspectedAllRequestId) ?? null;
   }, [sortedAllRequests, inspectedAllRequestId]);
+  const warehouseActiveRequest = useMemo(() => {
+  if (!warehouseModalRequestId) {
+    return null;
+  }
+  // vvv CHANGE THIS LINE vvv
+  return (sortedApprovedRequests ?? []).find((request) => request.requestId === warehouseModalRequestId) ?? null;
+}, [sortedApprovedRequests, warehouseModalRequestId]);
+
+  const warehouseActiveItems = warehouseModalItems ?? [];
+
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
   const orderItemByProductId = useMemo(() => {
@@ -248,6 +264,15 @@ export default function RequestsPage() {
     });
     return map;
   }, [products]);
+
+  const technicianRequests = useMemo(() => {
+    const data = allRequests ?? [];
+    if (role !== 'TECHNICIAN') return []; // Only calculate if relevant
+    return data
+      .filter((request) => request.staffId === staffId)
+      .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+  }, [allRequests, staffId, role]);
+
 
   const loadExistingTotals = useCallback(
     async (orderId: string) => {
@@ -276,15 +301,7 @@ export default function RequestsPage() {
     [token]
   );
 
-  const warehouseActiveRequest = useMemo(() => {
-    if (!warehouseModalRequestId) {
-      return null;
-    }
-    // ค้นหา Request ที่ถูกเลือกจากรายการที่อนุมัติแล้ว
-    return sortedApprovedRequests.find((request) => request.requestId === warehouseModalRequestId) ?? null;
-  }, [sortedApprovedRequests, warehouseModalRequestId]);
-
-  const warehouseActiveItems = warehouseModalItems ?? [];
+  
 
   const canOpenFulfillModal = sortedApprovedRequests.length > 0;
 
@@ -821,8 +838,7 @@ export default function RequestsPage() {
                       <div className="space-y-2">
                         <label className="text-xs font-medium text-slate-500">เลือกคำขอที่ต้องการเบิก</label>
                         <select
-                          value={warehouseModalRequestId}
-                          onChange={(event) => setWarehouseModalRequestId(event.target.value)}
+                          value={warehouseModalRequestId ?? ''}                           onChange={(event) => setWarehouseModalRequestId(event.target.value)}
                           disabled={filteredWarehouseRequests.length === 0}
                           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                         >
@@ -1332,7 +1348,7 @@ export default function RequestsPage() {
                               {itemsForRequest.map((item) => (
                                 <li key={item.requestItemId} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
                                   <span>
-                                    {item.productId} • {item.quantity} ชิ้น
+                                    {productById.get(item.productId)?.productName ?? item.productId} • {item.quantity} ชิ้น
                                   </span>
                                   <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
                                 </li>
@@ -1372,131 +1388,78 @@ export default function RequestsPage() {
         </section>
       )}
 
-      {role === 'TECHNICIAN' && (
-        <section className="card space-y-4 p-6">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Technician: คำขอของฉัน</h2>
-            <p className="text-sm text-slate-500">ดึงจาก /requests และสามารถเปิดดูรายละเอียดได้</p>
-          </div>
-          <div className="space-y-4">
-            {sortedApprovedRequests.map((request) => {
-              const isExpanded = warehouseExpandedRequestId === request.requestId;
-              const itemsForRequest = (warehouseRequestItems ?? []).filter(
-                (item) => item.requestId === request.requestId
-              );
-              const isLoadingItems = isExpanded && !warehouseRequestItems;
-              return (
-                <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-semibold text-slate-800">{request.requestId}</p>
-                      <p className="text-xs text-slate-500">Order: {request.orderId} • ลูกค้า {request.customerId}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setWarehouseExpandedRequestId(isExpanded ? null : request.requestId)}
-                      className="text-xs text-primary-600"
-                    >
-                      {isExpanded ? 'ซ่อน' : 'ดูรายการ'}
-                    </button>
+     {role === 'TECHNICIAN' && (
+      <section className="card space-y-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Technician: คำขอของฉัน</h2>
+          <p className="text-sm text-slate-500">แสดงรายการคำขอทั้งหมดที่สร้างโดยคุณ ({staffId})</p>
+        </div>
+        <div className="space-y-3">
+          {technicianRequests.map((request) => {
+            const isExpanded = technicianExpandedRequestId === request.requestId;
+            const itemsForRequest = (technicianRequestItems ?? []).filter(
+              (item) => item.requestId === request.requestId
+            );
+            const isLoadingItems = isExpanded && !technicianRequestItems;
+            return (
+              <div key={request.requestId} className="rounded-2xl border border-slate-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setTechnicianExpandedRequestId(isExpanded ? null : request.requestId)}
+                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition ${
+                    isExpanded ? 'border-b border-slate-200 bg-slate-50' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div>
+                    <p className="font-semibold text-slate-800">{request.requestId}</p>
+                    <p className="text-xs text-slate-500">
+                      Order: {request.orderId || '-'} • สถานะ: {request.status}
+                    </p>
                   </div>
-                  {isExpanded && (
-                    <ul className="mt-3 space-y-3 text-sm text-slate-600">
-                      {isLoadingItems && (
-                        <li className="rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">กำลังโหลดรายการสินค้า...</li>
-                      )}
-                      {!isLoadingItems &&
-                        itemsForRequest.map((item) => {
-                          const product = productById.get(item.productId);
-                          const stockAvailable = product?.quantity ?? 0;
-                          const maxByRequest = item.remainingQty;
-                          const maxByStock = stockAvailable;
-                          const maxQty = Math.min(maxByRequest, maxByStock);
-                          const storedQty = fulfillQuantities[item.requestItemId];
-                          const defaultQty = maxQty > 0 ? maxQty : 0;
-                          const plannedQty = storedQty !== undefined ? storedQty : defaultQty;
-                          const quantityForInput = maxQty > 0 ? Math.min(plannedQty, maxQty) : 0;
-                          const isProcessing = fulfilling[item.requestItemId];
-                          const canFulfillItem = maxQty > 0;
-                          const disableActions = !canFulfillItem || isProcessing;
-                          let buttonLabel = 'บันทึกการเบิก';
-                          if (isProcessing) {
-                            buttonLabel = 'กำลังบันทึก...';
-                          } else if (maxByRequest <= 0) {
-                            buttonLabel = 'เบิกครบแล้ว';
-                          } else if (maxByStock <= 0) {
-                            buttonLabel = 'สต็อกไม่เพียงพอ';
-                          }
-                          const productLabel = product?.productName
-                            ? `${product.productName} (${product.productId})`
-                            : item.productId;
-
-                          return (
+                  <span className="text-xs text-slate-400">{format(new Date(request.requestDate), 'dd MMM yyyy')}</span>
+                </button>
+                {isExpanded && (
+                  <div className="space-y-4 px-4 pb-4 pt-3 text-sm text-slate-600">
+                    {request.description && <p className="text-slate-600">{request.description}</p>}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">รายการสินค้า</p>
+                      {isLoadingItems ? (
+                        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          กำลังโหลดรายการสินค้า...
+                        </p>
+                      ) : itemsForRequest.length > 0 ? (
+                        <ul className="mt-2 space-y-2">
+                          {itemsForRequest.map((item) => (
                             <li
                               key={item.requestItemId}
-                              className="flex flex-col gap-3 rounded-xl bg-slate-50 px-3 py-3 md:flex-row md:items-center md:justify-between"
+                              className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
                             >
-                              <div className="space-y-1">
-                                <p className="font-medium text-slate-700">{productLabel}</p>
-                                <p className="text-xs text-slate-500">
-                                  ขอ {item.quantity} • เบิกแล้ว {item.fulfilledQty} • คงเหลือ {item.remainingQty} • สต็อก {stockAvailable}
-                                </p>
-                                {maxByStock < item.remainingQty && maxByStock > 0 && (
-                                  <p className="text-xs text-amber-600">สต็อกมี {stockAvailable} ชิ้น สามารถเบิกได้บางส่วน</p>
-                                )}
-                                {maxByStock <= 0 && (
-                                  <p className="text-xs text-rose-500">สต็อกสินค้าในคลังหมด ไม่สามารถเบิกได้</p>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-stretch gap-2 text-xs md:flex-row md:items-center md:gap-3">
-                                <input
-                                  type="number"
-                                  min={canFulfillItem ? 1 : 0}
-                                  max={canFulfillItem ? maxQty : undefined}
-                                  value={canFulfillItem ? quantityForInput : 0}
-                                  onChange={(event) => {
-                                    if (!canFulfillItem) {
-                                      return;
-                                    }
-                                    const nextValue = Number(event.target.value);
-                                    const sanitized = Number.isFinite(nextValue) ? Math.trunc(nextValue) : quantityForInput;
-                                    const safeValue = Math.min(maxQty, Math.max(1, sanitized));
-                                    setFulfillQuantities((prev) => ({ ...prev, [item.requestItemId]: safeValue }));
-                                  }}
-                                  disabled={disableActions}
-                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm text-slate-700 md:w-28"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!canFulfillItem) {
-                                      return;
-                                    }
-                                    const sanitized = Math.trunc(quantityForInput);
-                                    const quantityToFulfill = Math.min(maxQty, Math.max(1, sanitized || maxQty));
-                                    handleFulfill(item, quantityToFulfill);
-                                  }}
-                                  disabled={disableActions}
-                                  className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                                >
-                                  {buttonLabel}
-                                </button>
-                              </div>
+                              <span>
+                                {productById.get(item.productId)?.productName ?? item.productId} • ขอ {item.quantity} ชิ้น
+                              </span>
+                              <span className="text-xs text-slate-500">เบิกแล้ว {item.fulfilledQty}</span>
                             </li>
-                          );
-                        })}
-                      {!isLoadingItems && itemsForRequest.length === 0 && (
-                        <li className="rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">ยังไม่มีรายการสินค้า</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          ยังไม่มีรายการสินค้า
+                        </p>
                       )}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-            {(approvedRequests?.length ?? 0) === 0 && <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">ยังไม่มีคำขอที่อนุมัติ</p>}
-          </div>
-        </section>
-      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {technicianRequests.length === 0 && (
+            <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
+              {allRequests ? 'คุณยังไม่มีคำขอ' : 'กำลังโหลด...'}
+            </p>
+          )}
+        </div>
+      </section>
+    )}
 
       {canClose && (
         <section className="card space-y-4 p-6">
@@ -1651,7 +1614,7 @@ export default function RequestsPage() {
                         {allRequestItems.map((item) => (
                           <li key={item.requestItemId} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
                             <span>
-                              {item.productId} • {item.quantity} ชิ้น
+                              {productById.get(item.productId)?.productName ?? item.productId} • {item.quantity} ชิ้น
                             </span>
                             <span className="text-xs text-slate-500">คงเหลือ {item.remainingQty}</span>
                           </li>
