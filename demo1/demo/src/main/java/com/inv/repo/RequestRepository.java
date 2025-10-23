@@ -132,7 +132,7 @@ public class RequestRepository {
 
     public List<Request> findReadyToCloseRequests() {
         String sql = "SELECT r.request_id, r.request_date, r.status, r.order_id, r.customer_id, r.staff_id, r.description, r.approved_by, r.approved_date " +
-                "FROM Request r WHERE r.status = 'Approved' " +
+                "FROM Request r WHERE r.status = 'Pending' " +
                 "AND NOT EXISTS (SELECT 1 FROM RequestItem ri WHERE ri.request_id = r.request_id AND ri.remaining_qty > 0)";
         return jdbcTemplate.query(sql, this::mapRow);
     }

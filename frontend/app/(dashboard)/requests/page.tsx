@@ -13,7 +13,7 @@ interface DraftRequestItem {
   quantity: number;
 }
 
-const parseDateTime = (value?: string | null): Date | null => {
+const parseDateTime = (value?: string | number | null): Date | null => {
   if (!value) {
     return null;
   }
@@ -21,12 +21,12 @@ const parseDateTime = (value?: string | null): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const getTimeValue = (value?: string | null) => {
+const getTimeValue = (value?: string | number | null) => {
   const date = parseDateTime(value);
   return date ? date.getTime() : 0;
 };
 
-const formatDateTime = (value?: string | null, pattern = 'dd MMM yyyy HH:mm') => {
+const formatDateTime = (value?: string | number | null, pattern = 'dd MMM yyyy HH:mm') => {
   const date = parseDateTime(value);
   return date ? format(date, pattern) : '-';
 };
