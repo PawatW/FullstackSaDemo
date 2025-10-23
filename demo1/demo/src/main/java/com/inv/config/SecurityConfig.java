@@ -65,7 +65,7 @@ public class SecurityConfig {
 
                         // Authenticated endpoints (สำหรับ role อื่นๆ หรือ role ร่วม)
                         .requestMatchers(HttpMethod.GET, "/orders/confirmed").hasAnyRole("TECHNICIAN", "ADMIN", "SALES")
-                        .requestMatchers(HttpMethod.GET, "/orders/{orderId}/items").hasAnyRole("TECHNICIAN", "ADMIN", "FOREMAN")
+                        .requestMatchers(HttpMethod.GET, "/orders/{orderId}/items").hasAnyRole("TECHNICIAN", "ADMIN", "FOREMAN","SALES")
                         .requestMatchers(HttpMethod.GET, "/requests/{requestId}/items").hasAnyRole("WAREHOUSE", "ADMIN","TECHNICIAN", "FOREMAN")
 
                         // เพิ่ม Rule สำหรับ Warehouse
@@ -94,6 +94,7 @@ public class SecurityConfig {
 
                         // เพิ่ม: Rules สำหรับ Endpoint ใหม่ (ให้ Admin เข้าถึงได้)
                         .requestMatchers(HttpMethod.GET, "/staff").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/staff").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/stock/transactions").hasRole("WAREHOUSE")
                         .requestMatchers(HttpMethod.GET, "/stock/fulfill").hasRole("WAREHOUSE")
 

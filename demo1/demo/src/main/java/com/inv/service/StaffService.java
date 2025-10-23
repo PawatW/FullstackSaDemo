@@ -29,7 +29,7 @@ public class StaffService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "อีเมลนี้ถูกใช้แล้ว (Email is already in use)");
         }
 
-        String initialPassword = "defaultPassword123";
+        String initialPassword = staff.getPassword();
         staff.setPassword(passwordEncoder.encode(initialPassword));
 
         // เพิ่ม: สร้าง ID ที่นี่

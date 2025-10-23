@@ -618,12 +618,6 @@ video {
 .flex-1 {
   flex: 1 1 0%;
 }
-.list-decimal {
-  list-style-type: decimal;
-}
-.list-disc {
-  list-style-type: disc;
-}
 .flex-col {
   flex-direction: column;
 }
@@ -933,9 +927,6 @@ video {
 }
 .pb-4 {
   padding-bottom: 1rem;
-}
-.pl-5 {
-  padding-left: 1.25rem;
 }
 .pt-3 {
   padding-top: 0.75rem;
