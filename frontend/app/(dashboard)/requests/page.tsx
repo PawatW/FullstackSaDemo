@@ -819,7 +819,7 @@ export default function RequestsPage() {
                 if (sortedApprovedRequests.length > 0) {
                   setWarehouseModalRequestId(sortedApprovedRequests[0].requestId);
                 } else {
-                  setWarehouseModalRequestId('');
+                  setWarehouseModalRequestId(null);
                 }
                 setWarehouseModalOpen(true);
               }}
