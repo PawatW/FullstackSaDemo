@@ -47,6 +47,14 @@ public class RequestRepository {
         return jdbcTemplate.query(sql, this::mapRow);
     }
 
+    public List<Request> findByOrderId(String orderId) {
+        String sql = "SELECT request_id, request_date, status, order_id, customer_id, staff_id, description, approved_by, approved_date " +
+                "FROM request WHERE order_id = ?"; // <-- ใช้ ? เพื่อความปลอดภัย
+
+        // ส่ง orderId เข้าไปเป็น argument ตัวที่ 3
+        return jdbcTemplate.query(sql, this::mapRow, orderId);
+    }
+
     public void save(Request r) {
         jdbcTemplate.update(
                 "INSERT INTO request(request_id, request_date, status, order_id, customer_id, staff_id, description) VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?)",

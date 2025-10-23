@@ -4,6 +4,7 @@ import com.inv.model.Request;
 import com.inv.model.RequestItem;
 import com.inv.service.RequestService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.Collections;
@@ -18,8 +19,25 @@ public class RequestController {
     private RequestService requestService;
 
     @GetMapping
-    public List<Request> getAllRequests() {
-        return requestService.getAllRequests();
+    public ResponseEntity<List<Request>> getAllRequests(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String orderId // <-- 1. เพิ่มตัวนี้
+    ) {
+        List<Request> requests;
+
+        // vvv 2. เพิ่มเงื่อนไขนี้ vvv
+        if (orderId != null && !orderId.isEmpty()) {
+            requests = requestService.getRequestsByOrderId(orderId);
+        }
+        // ^^^ สิ้นสุดส่วนที่เพิ่ม ^^^
+        else if ("pending".equals(status)) {
+            requests = requestService.getPendingRequests();
+        } else if ("ready-to-close".equals(status)) {
+            requests = requestService.getReadyToCloseRequests();
+        } else {
+            requests = requestService.getAllRequests();
+        }
+        return ResponseEntity.ok(requests);
     }
 
     @PostMapping

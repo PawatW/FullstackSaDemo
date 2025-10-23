@@ -26,6 +26,10 @@ public class RequestService {
     public List<Request> getAllRequests() {
         return requestRepository.findAll();
     }
+    // vvv เพิ่ม Method นี้ vvv
+    public List<Request> getRequestsByOrderId(String orderId) {
+        return requestRepository.findByOrderId(orderId);
+    }
 
     @Transactional
     public String createRequest(Request req, List<RequestItem> items) { // return String
