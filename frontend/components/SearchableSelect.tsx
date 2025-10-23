@@ -19,6 +19,8 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   searchPlaceholder?: string;
   className?: string;
+  onInspectOption?: (option: SearchableOption) => void;
+  inspectLabel?: string;
 }
 
 export function SearchableSelect({
@@ -30,7 +32,9 @@ export function SearchableSelect({
   disabled,
   emptyMessage,
   searchPlaceholder,
-  className
+  className,
+  onInspectOption,
+  inspectLabel
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -141,23 +145,41 @@ export function SearchableSelect({
                 const isSelected = option.value === value;
                 return (
                   <li key={option.value}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChange(option.value);
-                        setIsOpen(false);
-                        setQuery('');
-                      }}
-                      className={clsx(
-                        'flex w-full flex-col items-start gap-1 px-4 py-2 text-left text-sm transition',
-                        isSelected ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-50'
+                    <div className="flex items-stretch gap-2 px-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onChange(option.value);
+                          setIsOpen(false);
+                          setQuery('');
+                        }}
+                        className={clsx(
+                          'flex-1 rounded-lg px-4 py-2 text-left text-sm transition',
+                          'flex flex-col items-start gap-1',
+                          isSelected ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-50'
+                        )}
+                        role="option"
+                        aria-selected={isSelected}
+                      >
+                        <span className="font-medium">{option.label}</span>
+                        {option.description && <span className="text-xs text-slate-500">{option.description}</span>}
+                      </button>
+                      {onInspectOption && option.value && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setIsOpen(false);
+                            setQuery('');
+                            onInspectOption(option);
+                          }}
+                          className="whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                        >
+                          {inspectLabel ?? 'รายละเอียด'}
+                        </button>
                       )}
-                      role="option"
-                      aria-selected={isSelected}
-                    >
-                      <span className="font-medium">{option.label}</span>
-                      {option.description && <span className="text-xs text-slate-500">{option.description}</span>}
-                    </button>
+                    </div>
                   </li>
                 );
               })
