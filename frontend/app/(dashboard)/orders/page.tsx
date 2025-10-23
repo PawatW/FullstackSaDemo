@@ -267,7 +267,6 @@ export default function OrdersPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
-        <p className="text-sm text-slate-500">แสดงข้อมูลจาก OrderController: /orders, /orders/confirmed, /orders/ready-to-close</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -280,7 +279,6 @@ export default function OrdersPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Sales: สร้าง Order ใหม่</h2>
-              <p className="text-sm text-slate-500">POST /orders พร้อมรายการสินค้าและผูก Staff ผ่าน JWT</p>
             </div>
             <button
               type="button"
@@ -440,7 +438,6 @@ export default function OrdersPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{isSales ? 'All Order' : 'Order ที่ได้รับการยืนยัน'}</h2>
-            <p className="text-sm text-slate-500">{isSales ? 'ดึงจาก /orders' : 'ดึงจาก /orders/confirmed'}</p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
             <input
@@ -644,7 +641,6 @@ export default function OrdersPage() {
         <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Order ที่พร้อมปิด</h2>
-            <p className="text-sm text-slate-500">ใช้ /orders/ready-to-close และ PUT /orders/{'{orderId}'}/close</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {(readyToClose ?? []).map((order) => {
@@ -751,7 +747,6 @@ export default function OrdersPage() {
         <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Order ทั้งหมด (สำหรับ Admin)</h2>
-            <p className="text-sm text-slate-500">อ่านข้อมูลจาก GET /orders</p>
           </div>
           <div className="overflow-hidden rounded-2xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">

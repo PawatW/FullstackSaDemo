@@ -71,12 +71,17 @@ export default function InventoryPage() {
       return;
     }
 
+    if (!supplierId) {
+      setError('กรุณาเลือก Supplier สำหรับสินค้า');
+      return;
+    }
+
     const payload = {
       productName,
       description: description || undefined,
       unit: unit || undefined,
       pricePerUnit,
-      supplierId: supplierId || undefined,
+      supplierId,
       quantity,
       imageUrl: imageUrl || undefined
     };
@@ -102,7 +107,6 @@ export default function InventoryPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
-        <p className="text-sm text-slate-500">ดึงข้อมูลจาก /products และรองรับการสร้างสินค้าใหม่สำหรับคลัง</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -196,7 +200,6 @@ export default function InventoryPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">เพิ่มสินค้าใหม่</h2>
-                    <p className="text-sm text-slate-500">กรอกข้อมูลสินค้าเพื่อเรียกใช้งาน POST /products</p>
                   </div>
                 <button
                   type="button"
@@ -240,8 +243,8 @@ export default function InventoryPage() {
                       name="supplierId"
                       value={selectedSupplierId}
                       onChange={setSelectedSupplierId}
-                      options={[{ value: '', label: 'เลือก Supplier (ไม่บังคับ)' }, ...supplierOptions]}
-                      placeholder="เลือก Supplier (ไม่บังคับ)"
+                      options={supplierOptions}
+                      placeholder="เลือก Supplier"
                       searchPlaceholder="ค้นหา Supplier..."
                       emptyMessage="ไม่พบ Supplier"
                     />
@@ -251,6 +254,7 @@ export default function InventoryPage() {
                       placeholder="เช่น SUP-001"
                       value={selectedSupplierId}
                       onChange={(event) => setSelectedSupplierId(event.target.value)}
+                      required
                     />
                   )}
                 </div>

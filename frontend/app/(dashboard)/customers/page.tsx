@@ -111,7 +111,6 @@ export default function CustomersPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-        <p className="text-sm text-slate-500">ข้อมูลจาก CustomerController: GET/POST /customers</p>
       </header>
 
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -241,7 +240,6 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">เพิ่มลูกค้าใหม่</h2>
-                <p className="text-sm text-slate-500">POST /customers เพื่อใช้ใน Order</p>
               </div>
               <button
                 type="button"
