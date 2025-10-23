@@ -23,8 +23,25 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new ApiError(message || 'Request failed', response.status);
+    const rawMessage = await response.text();
+    let message = rawMessage || 'Request failed';
+    if (rawMessage) {
+      try {
+        const parsed = JSON.parse(rawMessage);
+        if (typeof parsed === 'string') {
+          message = parsed;
+        } else if (parsed && typeof parsed === 'object' && 'message' in parsed) {
+          const extracted = (parsed as { message?: unknown }).message;
+          if (typeof extracted === 'string' && extracted.trim()) {
+            message = extracted;
+          }
+        }
+      } catch {
+        // rawMessage is not JSON; use as-is
+        message = rawMessage;
+      }
+    }
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {
