@@ -136,6 +136,20 @@ export default function RequestsPage() {
 
   const previewCustomerName = previewOrder ? customerById.get(previewOrder.customerId)?.customerName : undefined;
 
+  const orderItemsForSelectedOrder = useMemo(() => {
+    if (!selectedOrderId || hasOrderItemsError) {
+      return [] as OrderItem[];
+    }
+    const items = selectedOrderItems ?? [];
+    if (items.length === 0) {
+      return items;
+    }
+    if (items.some((item) => item.orderId && item.orderId !== selectedOrderId)) {
+      return items.filter((item) => item.orderId === selectedOrderId);
+    }
+    return items;
+  }, [selectedOrderId, selectedOrderItems, hasOrderItemsError]);
+
   const previewItems = useMemo(() => {
     if (!orderPreviewId) {
       return [] as OrderItem[];
@@ -249,19 +263,6 @@ export default function RequestsPage() {
 
   const totalQuantity = useMemo(() => draftItems.reduce((sum, item) => sum + (item.quantity || 0), 0), [draftItems]);
 
-  const orderItemsForSelectedOrder = useMemo(() => {
-    if (!selectedOrderId || hasOrderItemsError) {
-      return [] as OrderItem[];
-    }
-    const items = selectedOrderItems ?? [];
-    if (items.length === 0) {
-      return items;
-    }
-    if (items.some((item) => item.orderId && item.orderId !== selectedOrderId)) {
-      return items.filter((item) => item.orderId === selectedOrderId);
-    }
-    return items;
-  }, [selectedOrderId, selectedOrderItems, hasOrderItemsError]);
 
   const orderItemByProductId = useMemo(() => {
     const map = new Map<string, OrderItem>();
