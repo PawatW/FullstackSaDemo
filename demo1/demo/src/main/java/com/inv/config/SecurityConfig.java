@@ -95,7 +95,7 @@ public class SecurityConfig {
                         // เพิ่ม: Rules สำหรับ Endpoint ใหม่ (ให้ Admin เข้าถึงได้)
                         .requestMatchers(HttpMethod.GET, "/staff").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/staff").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/stock/transactions").hasRole("WAREHOUSE")
+                        .requestMatchers(HttpMethod.GET, "/stock/transactions").hasAnyRole("WAREHOUSE","ADMIN")
                         .requestMatchers(HttpMethod.GET, "/stock/fulfill").hasRole("WAREHOUSE")
 
 
