@@ -848,73 +848,6 @@ export default function RequestsPage() {
         <h1 className="text-2xl font-semibold text-slate-900">Requests</h1>
       </header>
 
-      <section className="card space-y-4 p-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Warehouse Use Case: เบิกของ</h2>
-          <p className="text-sm text-slate-500">อธิบายขั้นตอนการ Fulfill Request สำหรับบทบาท Warehouse ตามข้อมูลที่ทีมต้องการ</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case name</dt>
-                <dd className="text-slate-800">เบิกของ</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Use case description</dt>
-                <dd className="text-slate-700">
-                  สร้างคำขอเบิกวัสดุ/อุปกรณ์ เลือกจำนวนที่ต้องการ และดำเนินการเบิกให้ลูกค้าตามคำขอที่ได้รับการอนุมัติ
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</dt>
-                <dd className="text-slate-700">Staff (role = Warehouse)</dd>
-              </div>
-            </dl>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preconditions</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
-              <li>ผู้ใช้ล็อกอินเป็น Staff ที่สถานะ Active</li>
-              <li>ระบบทราบบทบาทจากข้อมูล Staff.role</li>
-              <li>มีคำขอที่ได้รับการอนุมัติ (Approved) รอเบิก</li>
-              <li>สินค้าแต่ละรายการมีสต็อกคงเหลือเพียงพอ</li>
-              <li>ปริมาณที่เบิกไม่เกินจำนวนคงเหลือที่ระบบคำนวณไว้</li>
-            </ol>
-          </div>
-        </div>
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Normal flow</h3>
-          <ol className="mt-3 space-y-3 text-sm text-slate-600">
-            <li className="rounded-xl bg-slate-50 px-4 py-3">
-              <p className="font-semibold text-slate-700">1. เลือกเมนู Fulfill Request</p>
-              <p className="mt-1 text-xs text-slate-500">ระบบแสดงฟอร์มเบิกของและโหลด Request ที่สถานะ Approved มาเตรียมไว้</p>
-            </li>
-            <li className="rounded-xl bg-slate-50 px-4 py-3">
-              <p className="font-semibold text-slate-700">2. ค้นหาคำขอที่ต้องการ</p>
-              <p className="mt-1 text-xs text-slate-500">ผู้ใช้พิมพ์ค้นหาด้วยรหัสคำขอ ลูกค้า หรือคำอธิบาย และระบบจะกรองรายการให้ตรงกับเงื่อนไข</p>
-            </li>
-            <li className="rounded-xl bg-slate-50 px-4 py-3">
-              <p className="font-semibold text-slate-700">3. เลือกคำขอที่ต้องการดำเนินการ</p>
-              <p className="mt-1 text-xs text-slate-500">ระบบแสดงรายละเอียดรายการสินค้า (Request Item) และจำนวนที่ยังคงเหลือให้เบิก</p>
-            </li>
-            <li className="rounded-xl bg-slate-50 px-4 py-3 space-y-2">
-              <p className="font-semibold text-slate-700">4. ระบุจำนวนที่จะเบิก</p>
-              <p className="text-xs text-slate-500">ระบบตรวจสอบความถูกต้องของจำนวนที่ระบุ</p>
-              <ul className="list-disc space-y-1 pl-5 text-xs text-slate-500">
-                <li>ต้องมากกว่า 0 และไม่เป็นค่าว่าง</li>
-                <li>ต้องไม่เกินจำนวนคงเหลือของรายการนั้น</li>
-                <li>ตรวจสอบสต็อกปัจจุบันของสินค้าอีกครั้งก่อนยืนยัน</li>
-              </ul>
-            </li>
-            <li className="rounded-xl bg-slate-50 px-4 py-3">
-              <p className="font-semibold text-slate-700">5. กดยืนยันการเบิก (Confirm Fulfillment)</p>
-              <p className="mt-1 text-xs text-slate-500">ระบบบันทึกการเบิก อัปเดต Fulfilled Qty ของ Request Item และตัดสต็อกสินค้าทันที</p>
-            </li>
-          </ol>
-        </div>
-      </section>
-
       {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
       {successMessage && (
         <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{successMessage}</div>
@@ -947,7 +880,7 @@ export default function RequestsPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Warehouse: ดำเนินการเบิกสินค้า</h2>
-              <p className="text-sm text-slate-500">เลือกคำขอที่อนุมัติจาก /stock/approved-requests เพื่อตัดสต็อก</p>
+                <p className="text-sm text-slate-500">เลือกคำขอที่พร้อมให้เบิกจาก /stock/approved-requests เพื่อตัดสต็อก</p>
             </div>
             <button
               type="button"
@@ -971,7 +904,7 @@ export default function RequestsPage() {
           <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
             {canOpenFulfillModal
               ? `มีคำขอรอเบิก ${sortedApprovedRequests.length.toLocaleString('th-TH')} รายการ`
-              : 'ยังไม่มีคำขอที่ได้รับการอนุมัติให้เบิก'}
+              : 'ยังไม่มีคำขอที่พร้อมให้เบิก'}
           </div>
         </section>
       )}
@@ -1016,11 +949,11 @@ export default function RequestsPage() {
                     options={[{ value: '', label: 'เลือกคำขอ' }, ...warehouseRequestOptions]}
                     placeholder="เลือกคำขอที่ต้องการเบิก"
                     searchPlaceholder="ค้นหาด้วยรหัสคำขอ, Order, ลูกค้า..."
-                    emptyMessage="ไม่พบคำขอที่อนุมัติ"
+                    emptyMessage="ไม่พบคำขอที่พร้อมให้เบิก"
                     disabled={warehouseRequestOptions.length === 0}
                   />
                   {warehouseRequestOptions.length === 0 && (
-                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ยังไม่มีคำขอที่อนุมัติให้เบิก</p>
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">ยังไม่มีคำขอที่พร้อมให้เบิก</p>
                   )}
                 </div>
                   {warehouseActiveRequest && (
@@ -1645,7 +1578,7 @@ export default function RequestsPage() {
         <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">คำขอที่พร้อมปิด</h2>
-            <p className="text-sm text-slate-500">ใช้ /requests/ready-to-close และ PUT /requests/{'{id}'}/close</p>
+            <p className="text-sm text-slate-500">คำขอที่เบิกครบแล้วและรอเจ้าหน้าที่ปิดงาน</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {(readyToClose ?? []).map((request) => {
@@ -1656,7 +1589,7 @@ export default function RequestsPage() {
                   <p className="text-sm font-semibold text-slate-800">{request.requestId}</p>
                   <p className="mt-1 text-xs text-slate-500">Order: {request.orderId ?? '-'}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                  วันที่ขอ: {formatDateTime(request.requestDate)}
+                    วันที่ขอ: {formatDateTime(request.requestDate)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">สถานะ: {displayStatus}</p>
                   <div className="mt-3 flex flex-col gap-2">

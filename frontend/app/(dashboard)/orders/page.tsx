@@ -33,6 +33,8 @@ const formatDateTime = (value?: string | number | null, pattern = 'dd MMM yyyy')
 
 export default function OrdersPage() {
   const { role, token } = useAuth();
+  const isSales = role === 'SALES';
+  const shouldLoadAllOrders = role === 'ADMIN' || isSales;
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -48,7 +50,7 @@ export default function OrdersPage() {
 
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
-  const { data: allOrders, mutate: mutateAll } = useAuthedSWR<Order[]>(role === 'ADMIN' ? '/orders' : null, token);
+  const { data: allOrders, mutate: mutateAll } = useAuthedSWR<Order[]>(shouldLoadAllOrders ? '/orders' : null, token);
   const { data: confirmedOrders, mutate: mutateConfirmed } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' || role === 'SALES' ? '/orders/confirmed' : null, token);
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Order[]>(role === 'SALES' || role === 'ADMIN' ? '/orders/ready-to-close' : null, token, {
     refreshInterval: 20000
@@ -99,9 +101,9 @@ export default function OrdersPage() {
   }, [products]);
 
   const sortedConfirmedOrders = useMemo(() => {
-    const data = confirmedOrders ?? [];
+    const data = isSales ? allOrders ?? [] : confirmedOrders ?? [];
     return [...data].sort((a, b) => getTimeValue(b.orderDate) - getTimeValue(a.orderDate));
-  }, [confirmedOrders]);
+  }, [isSales, allOrders, confirmedOrders]);
 
   const filteredConfirmedOrders = useMemo(() => {
     const query = confirmedSearch.trim().toLowerCase();
@@ -437,8 +439,8 @@ export default function OrdersPage() {
       <section className="card space-y-4 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Order ที่ได้รับการยืนยัน</h2>
-            <p className="text-sm text-slate-500">ดึงจาก /orders/confirmed</p>
+            <h2 className="text-lg font-semibold text-slate-900">{isSales ? 'All Order' : 'Order ที่ได้รับการยืนยัน'}</h2>
+            <p className="text-sm text-slate-500">{isSales ? 'ดึงจาก /orders' : 'ดึงจาก /orders/confirmed'}</p>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:items-end">
             <input
@@ -476,7 +478,11 @@ export default function OrdersPage() {
               ) : filteredConfirmedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-500">
-                    {sortedConfirmedOrders.length === 0 ? 'ยังไม่มี Order ที่ยืนยัน' : 'ไม่พบ Order ที่ตรงกับการค้นหา'}
+                    {sortedConfirmedOrders.length === 0
+                      ? isSales
+                        ? 'ยังไม่มี Order'
+                        : 'ยังไม่มี Order ที่ยืนยัน'
+                      : 'ไม่พบ Order ที่ตรงกับการค้นหา'}
                   </td>
                 </tr>
               ) : (
