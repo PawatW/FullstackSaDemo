@@ -1,0 +1,13 @@
+# Exclude build output
+target/
+
+# Exclude build logs
+*.log
+
+# Exclude Git directory
+.git/
+.gitignore
+
+# Exclude IDE settings/files
+.idea/
+*.iml

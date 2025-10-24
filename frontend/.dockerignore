@@ -1,0 +1,19 @@
+# Exclude dependencies (installed in container)
+node_modules/
+
+# Exclude Next.js build cache/output
+.next/
+out/
+
+# Exclude local environment files
+.env*.local
+
+# Exclude system files
+.DS_Store
+
+# Exclude build logs
+*.log
+
+# Exclude Git directory
+.git/
+.gitignore

@@ -1,7 +1,7 @@
 -- ========================
 -- Supplier
 -- ========================
-CREATE TABLE Supplier (
+CREATE TABLE IF NOT EXISTS Supplier (
     supplier_id VARCHAR(20) PRIMARY KEY,
     supplier_name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
@@ -12,7 +12,7 @@ CREATE TABLE Supplier (
 -- ========================
 -- Product
 -- ========================
-CREATE TABLE Product (
+CREATE TABLE IF NOT EXISTS Product (
     product_id VARCHAR(20) PRIMARY KEY,
     product_name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -26,7 +26,7 @@ CREATE TABLE Product (
 -- ========================
 -- Customer
 -- ========================
-CREATE TABLE Customer (
+CREATE TABLE IF NOT EXISTS Customer (
     customer_id VARCHAR(20) PRIMARY KEY,
     customer_name VARCHAR(100) NOT NULL,
     address VARCHAR(200),
@@ -37,7 +37,7 @@ CREATE TABLE Customer (
 -- ========================
 -- Staff
 -- ========================
-CREATE TABLE Staff (
+CREATE TABLE IF NOT EXISTS Staff (
     staff_id VARCHAR(20) PRIMARY KEY,
     staff_name VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE Staff (
 -- ========================
 -- "Order" (ใช้ Double Quote เพราะ Order เป็น Reserved Word)
 -- ========================
-CREATE TABLE "Order" (
+CREATE TABLE IF NOT EXISTS "Order" (
     order_id VARCHAR(20) PRIMARY KEY,
     order_date TIMESTAMP NOT NULL,
     total_amount DECIMAL(12,2) DEFAULT 0 CHECK (total_amount >= 0),
@@ -61,7 +61,7 @@ CREATE TABLE "Order" (
 -- ========================
 -- OrderItem
 -- ========================
-CREATE TABLE OrderItem (
+CREATE TABLE IF NOT EXISTS OrderItem (
     order_item_id VARCHAR(20) PRIMARY KEY,
     order_id VARCHAR(20) REFERENCES "Order"(order_id),
     product_id VARCHAR(20) REFERENCES Product(product_id),
@@ -75,7 +75,7 @@ CREATE TABLE OrderItem (
 -- ========================
 -- Request
 -- ========================
-CREATE TABLE Request (
+CREATE TABLE IF NOT EXISTS Request (
     request_id VARCHAR(20) PRIMARY KEY,
     request_date TIMESTAMP NOT NULL,
     status VARCHAR(50) DEFAULT 'Awaiting Approval',
@@ -90,7 +90,7 @@ CREATE TABLE Request (
 -- ========================
 -- RequestItem
 -- ========================
-CREATE TABLE RequestItem (
+CREATE TABLE IF NOT EXISTS RequestItem (
     request_item_id VARCHAR(20) PRIMARY KEY,
     request_id VARCHAR(20) REFERENCES Request(request_id),
     product_id VARCHAR(20) REFERENCES Product(product_id),
@@ -102,7 +102,7 @@ CREATE TABLE RequestItem (
 -- ========================
 -- StockTransaction
 -- ========================
-CREATE TABLE StockTransaction (
+CREATE TABLE IF NOT EXISTS StockTransaction (
     transaction_id VARCHAR(20) PRIMARY KEY,
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     type VARCHAR(10) CHECK (type IN ('IN','OUT','ADJUST')),
