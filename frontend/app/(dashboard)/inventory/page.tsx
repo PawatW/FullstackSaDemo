@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../components/AuthContext';
 import { useAuthedSWR } from '../../../lib/swr';
@@ -25,6 +26,8 @@ export default function InventoryPage() {
   }, [selectedProduct]);
 
   const canManage = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canCreateCustomers = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
+  const canCreateOrders = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
   const { data: suppliers } = useAuthedSWR<Supplier[]>(canManage ? '/suppliers' : null, token);
   const { data: products, mutate, isLoading } = useAuthedSWR<Product[]>('/products', token, { refreshInterval: 30000 });
 
@@ -159,21 +162,39 @@ export default function InventoryPage() {
             className="w-full md:w-72"
           />
           <div className="flex flex-col items-start gap-2 md:items-end">
-            {canManage && (
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setSuccessMessage(null);
-                  setSelectedSupplierId('');
-                  setCreateModalOpen(true);
-                  setFormResetKey((prev) => prev + 1);
-                }}
-                className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
-              >
-                เปิดฟอร์มเพิ่มสินค้า
-              </button>
-            )}
+            <div className="flex w-full flex-wrap gap-2 md:justify-end">
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setSuccessMessage(null);
+                    setSelectedSupplierId('');
+                    setCreateModalOpen(true);
+                    setFormResetKey((prev) => prev + 1);
+                  }}
+                  className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 md:w-auto"
+                >
+                  เปิดฟอร์มเพิ่มสินค้า
+                </button>
+              )}
+              {canCreateCustomers && (
+                <Link
+                  href="/customers"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 md:w-auto"
+                >
+                  สร้าง Customer
+                </Link>
+              )}
+              {canCreateOrders && (
+                <Link
+                  href="/orders"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 md:w-auto"
+                >
+                  สร้าง Order
+                </Link>
+              )}
+            </div>
             <p className="text-xs text-slate-400">แสดง {filteredProducts.length} จาก {products?.length ?? 0} รายการ</p>
           </div>
         </div>
@@ -292,6 +313,7 @@ export default function InventoryPage() {
                           placeholder="เลือก Supplier"
                           searchPlaceholder="ค้นหา Supplier..."
                           emptyMessage="ไม่พบ Supplier"
+                          required
                         />
                       ) : (
                         <input
@@ -334,7 +356,6 @@ export default function InventoryPage() {
             </div>
           </div>
         </div>
-      )}
       )}
 
       {selectedProduct && isDetailModalOpen && (
