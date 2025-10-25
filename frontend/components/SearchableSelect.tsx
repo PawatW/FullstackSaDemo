@@ -30,6 +30,7 @@ export function SearchableSelect({
   options,
   placeholder,
   disabled,
+  required,
   emptyMessage,
   searchPlaceholder,
   className,
@@ -93,7 +94,7 @@ export function SearchableSelect({
 
   return (
     <div ref={containerRef} className={clsx('relative text-sm', className)}>
-      {name ? <input type="hidden" name={name} value={value} /> : null}
+      {name ? <input type="hidden" name={name} value={value} required={required} /> : null}
       <button
         type="button"
         disabled={disabled}
