@@ -60,4 +60,9 @@ public class CustomerRepository {
                 c.getCustomerName(), c.getAddress(), c.getPhone(), c.getEmail()
         );
     }
+
+    public void update(String customerId, String name, String address, String phone, String email) {
+        String sql = "UPDATE Customer SET customer_name = ?, address = ?, phone = ?, email = ? WHERE customer_id = ?";
+        jdbcTemplate.update(sql, name, address, phone, email, customerId);
+    }
 }

@@ -30,4 +30,10 @@ public class SupplierController {
         Supplier newSupplier = supplierService.createSupplier(supplier);
         return ResponseEntity.ok(newSupplier);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Supplier> updateSupplier(@PathVariable String id, @RequestBody Supplier supplier) {
+        Supplier updatedSupplier = supplierService.updateSupplier(id, supplier);
+        return ResponseEntity.ok(updatedSupplier);
+    }
 }
