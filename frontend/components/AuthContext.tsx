@@ -8,6 +8,18 @@ import { ApiError } from '../lib/api';
 
 type Role = 'ADMIN' | 'SALES' | 'TECHNICIAN' | 'FOREMAN' | 'WAREHOUSE' | string;
 
+function normalizeRole(rawRole: unknown): Role | null {
+  if (!rawRole) {
+    return null;
+  }
+  const roleString = String(rawRole).trim();
+  if (!roleString) {
+    return null;
+  }
+  const withoutPrefix = roleString.startsWith('ROLE_') ? roleString.slice(5) : roleString;
+  return withoutPrefix.toUpperCase();
+}
+
 interface AuthContextValue {
   token: string | null;
   staffId: string | null;
@@ -36,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (payload && !isTokenExpired(payload)) {
         setToken(saved);
         setStaffId(payload.sub);
-        setRole((payload.role as Role) || null);
+        setRole(normalizeRole(payload.role));
       } else if (typeof window !== 'undefined') {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -79,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setToken(receivedToken);
       setStaffId(payload.sub);
-      setRole((payload.role as Role) || null);
+      setRole(normalizeRole(payload.role));
       router.push('/dashboard');
     },
     [router]
