@@ -42,6 +42,12 @@ public class ProductController {
         return ResponseEntity.ok(newProduct);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(@PathVariable String id, @RequestBody Product product) {
+        Product updatedProduct = productService.updateProductDetails(id, product);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
     @PostMapping("/upload-image")
     public ResponseEntity<Map<String, String>> uploadProductImage(@RequestParam("file") MultipartFile file) {
         String imageUrl = imageService.uploadProductImage(file);

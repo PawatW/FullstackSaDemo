@@ -63,4 +63,14 @@ public class ProductRepository {
     public void updateQuantity(String productId, int diff) { // รับ String productId
         jdbcTemplate.update("UPDATE product SET quantity = quantity + ? WHERE product_id = ?", diff, productId);
     }
+
+    public void updateDetails(String productId, String productName, String description, String imageUrl) {
+        jdbcTemplate.update(
+                "UPDATE product SET product_name = ?, description = ?, image_url = ? WHERE product_id = ?",
+                productName,
+                description,
+                imageUrl,
+                productId
+        );
+    }
 }
