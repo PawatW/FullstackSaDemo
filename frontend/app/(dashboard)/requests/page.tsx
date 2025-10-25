@@ -61,7 +61,7 @@ export default function RequestsPage() {
   const [isReadyRequestModalOpen, setReadyRequestModalOpen] = useState(false);
   const [isLoadingExistingTotals, setLoadingExistingTotals] = useState(false);
 
-  const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' ? '/orders/confirmed' : null, token);
+  const { data: confirmedOrders } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' ? '/orders/confirmed' : null, token);
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products, mutate: mutateProducts } = useAuthedSWR<Product[]>('/products', token);
   const {
@@ -72,10 +72,10 @@ export default function RequestsPage() {
   const hasOrderItemsError = Boolean(selectedOrderItemsError);
   const previewItemsKey = orderPreviewId && orderPreviewId !== selectedOrderId ? `/orders/${orderPreviewId}/items` : null;
   const { data: previewOrderItems } = useAuthedSWR<OrderItem[]>(previewItemsKey, token);
-  const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' || role === 'ADMIN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
-  const { data: approvedRequests, mutate: mutateApproved } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/approved-requests' : null, token, { refreshInterval: 15000 });
+  const { data: pendingRequests, mutate: mutatePending } = useAuthedSWR<Request[]>(role === 'FOREMAN' ? '/requests/pending' : null, token, { refreshInterval: 15000 });
+  const { data: approvedRequests, mutate: mutateApproved } = useAuthedSWR<Request[]>(role === 'WAREHOUSE' ? '/stock/approved-requests' : null, token, { refreshInterval: 15000 });
   const { data: allRequests } = useAuthedSWR<Request[]>('/requests', token, { refreshInterval: 30000 });
-  const canClose = role === 'TECHNICIAN' || role === 'ADMIN';
+  const canClose = role === 'TECHNICIAN';
   const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Request[]>(canClose ? '/requests/ready-to-close' : null, token, {
     refreshInterval: 30000
   });
@@ -108,9 +108,9 @@ export default function RequestsPage() {
     { revalidateOnFocus: false }
   );
 
-  const canCreate = role === 'TECHNICIAN' || role === 'ADMIN';
-  const canApprove = role === 'FOREMAN' || role === 'ADMIN';
-  const canFulfill = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canCreate = role === 'TECHNICIAN';
+  const canApprove = role === 'FOREMAN';
+  const canFulfill = role === 'WAREHOUSE';
 
   const customerById = useMemo(() => {
     const map = new Map<string, Customer>();

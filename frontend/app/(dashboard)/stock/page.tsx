@@ -32,7 +32,7 @@ export default function StockPage() {
     }
   );
 
-  const canStockIn = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canStockIn = role === 'WAREHOUSE';
   const canViewTransactions = role === 'WAREHOUSE' || role === 'ADMIN';
 
   const productOptions = useMemo<SearchableOption[]>(() => {

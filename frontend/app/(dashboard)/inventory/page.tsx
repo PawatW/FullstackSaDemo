@@ -32,7 +32,7 @@ export default function InventoryPage() {
     setEditImageError(false);
   }, [productToEdit]);
 
-  const canManage = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canManage = role === 'WAREHOUSE';
   const canCreateCustomers = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
   const canCreateOrders = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
   const { data: suppliers } = useAuthedSWR<Supplier[]>(canManage ? '/suppliers' : null, token);
