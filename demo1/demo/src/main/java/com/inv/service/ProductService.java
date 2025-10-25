@@ -61,4 +61,27 @@ public class ProductService {
     public void adjustQuantity(String productId, int diff) { // รับ String productId
         productRepository.updateQuantity(productId, diff);
     }
+
+    public Product updateProductDetails(String productId, Product payload) {
+        Product existing = productRepository.findById(productId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ไม่พบสินค้า (Product not found)");
+        }
+
+        String name = trimToNull(payload.getProductName());
+        if (name == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "กรุณาระบุชื่อสินค้า (Product name is required)");
+        }
+
+        String description = payload.getDescription() != null ? trimToNull(payload.getDescription()) : existing.getDescription();
+        String imageUrl = payload.getImageUrl() != null ? trimToNull(payload.getImageUrl()) : existing.getImageUrl();
+
+        productRepository.updateDetails(productId, name, description, imageUrl);
+
+        Product updated = productRepository.findById(productId);
+        if (updated == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปเดตสินค้าได้ (Unable to update product)");
+        }
+        return updated;
+    }
 }

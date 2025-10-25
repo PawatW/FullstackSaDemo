@@ -57,4 +57,9 @@ public class SupplierRepository {
                 s.getEmail()
         );
     }
+
+    public void update(String supplierId, String name, String address, String phone, String email) {
+        String sql = "UPDATE Supplier SET supplier_name = ?, address = ?, phone = ?, email = ? WHERE supplier_id = ?";
+        jdbcTemplate.update(sql, name, address, phone, email, supplierId);
+    }
 }

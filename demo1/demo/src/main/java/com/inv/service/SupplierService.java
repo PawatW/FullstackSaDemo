@@ -25,22 +25,69 @@ public class SupplierService {
     }
 
     public Supplier createSupplier(Supplier supplier) {
-        // 4. Validation
-        if (supplier.getSupplierName() == null || supplier.getSupplierName().trim().isEmpty()) {
+        String name = trimToNull(supplier.getSupplierName());
+        if (name == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "กรุณาระบุชื่อ Supplier (Supplier name is required)");
         }
 
-        if (supplier.getEmail() != null && !supplier.getEmail().trim().isEmpty()) {
-            if (supplierRepository.findByEmail(supplier.getEmail()) != null) {
+        String address = trimToNull(supplier.getAddress());
+        String phone = trimToNull(supplier.getPhone());
+        String email = trimToNull(supplier.getEmail());
+
+        if (email != null) {
+            Supplier emailOwner = supplierRepository.findByEmail(email);
+            if (emailOwner != null) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "อีเมลนี้มีในระบบแล้ว (Email already exists)");
             }
         }
 
-        // เพิ่ม: สร้าง ID ที่นี่
         String supplierId = "SUP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         supplier.setSupplierId(supplierId);
+        supplier.setSupplierName(name);
+        supplier.setAddress(address);
+        supplier.setPhone(phone);
+        supplier.setEmail(email);
 
         supplierRepository.save(supplier);
         return supplier;
+    }
+
+    public Supplier updateSupplier(String supplierId, Supplier payload) {
+        Supplier existing = supplierRepository.findById(supplierId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ไม่พบ Supplier (Supplier not found)");
+        }
+
+        String name = trimToNull(payload.getSupplierName());
+        if (name == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "กรุณาระบุชื่อ Supplier (Supplier name is required)");
+        }
+
+        String address = trimToNull(payload.getAddress());
+        String phone = trimToNull(payload.getPhone());
+        String email = trimToNull(payload.getEmail());
+
+        if (email != null) {
+            Supplier emailOwner = supplierRepository.findByEmail(email);
+            if (emailOwner != null && !emailOwner.getSupplierId().equals(supplierId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "อีเมลนี้มีในระบบแล้ว (Email already exists)");
+            }
+        }
+
+        supplierRepository.update(supplierId, name, address, phone, email);
+
+        Supplier updated = supplierRepository.findById(supplierId);
+        if (updated == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปเดต Supplier ได้ (Unable to update supplier)");
+        }
+        return updated;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
