@@ -751,7 +751,7 @@ export default function OrdersPage() {
       {role === 'ADMIN' && allOrders && (
         <section className="card space-y-4 p-6">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Order ทั้งหมด (สำหรับ Admin)</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Order ทั้งหมด </h2>
           </div>
           <div className="overflow-hidden rounded-2xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
