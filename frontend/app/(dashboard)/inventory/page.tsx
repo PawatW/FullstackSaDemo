@@ -335,7 +335,6 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
-      )}
 
       {selectedProduct && isDetailModalOpen && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-900/60">
