@@ -1,14 +1,15 @@
 package com.inv.controller;
 
 import com.inv.model.Product;
+import com.inv.service.ImageService;
 import com.inv.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/products")
@@ -16,6 +17,9 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private ImageService imageService;
 
     @GetMapping
     public List<Product> getAllProducts() {
@@ -36,6 +40,12 @@ public class ProductController {
     public ResponseEntity<Product> createProduct(@RequestBody Product product) {
         Product newProduct = productService.createProduct(product);
         return ResponseEntity.ok(newProduct);
+    }
+
+    @PostMapping("/upload-image")
+    public ResponseEntity<Map<String, String>> uploadProductImage(@RequestParam("file") MultipartFile file) {
+        String imageUrl = imageService.uploadProductImage(file);
+        return ResponseEntity.ok(Map.of("url", imageUrl));
     }
 
 //    @PostMapping("/products/{id}/image")
