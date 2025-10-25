@@ -7,7 +7,6 @@ import { useAuthedSWR } from '../../../lib/swr';
 import { apiFetch, uploadProductImage } from '../../../lib/api';
 import type { Product, Supplier } from '../../../lib/types';
 import { SearchableSelect, type SearchableOption } from '../../../components/SearchableSelect';
-
 export default function InventoryPage() {
   const { token, role } = useAuth();
   const [filter, setFilter] = useState('');
@@ -72,7 +71,6 @@ export default function InventoryPage() {
     const productName = String(formData.get('productName') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
     const unit = String(formData.get('unit') ?? '').trim();
-    const supplierId = String(formData.get('supplierId') ?? '').trim();
     const quantityRaw = formData.get('quantity');
     const quantity = quantityRaw === null || quantityRaw === '' ? 0 : Number(quantityRaw);
     if (Number.isNaN(quantity) || quantity < 0) {
@@ -92,8 +90,8 @@ export default function InventoryPage() {
       return;
     }
 
-    if (!supplierId) {
-      setError('กรุณาเลือก Supplier สำหรับสินค้า');
+    if (!selectedSupplierId) {
+      setError('กรุณาเลือก Supplier');
       return;
     }
 
@@ -117,7 +115,7 @@ export default function InventoryPage() {
       description: description || undefined,
       unit: unit || undefined,
       pricePerUnit,
-      supplierId,
+      supplierId: selectedSupplierId,
       quantity,
       imageUrl: uploadedImageUrl
     };
@@ -303,26 +301,22 @@ export default function InventoryPage() {
                     </div>
                     <div className="space-y-2">
                       <label className="block text-xs font-medium text-slate-500">Supplier</label>
-                      {supplierOptions.length > 0 ? (
-                        <SearchableSelect
-                          key={`supplier-${formResetKey}`}
-                          name="supplierId"
-                          value={selectedSupplierId}
-                          onChange={setSelectedSupplierId}
-                          options={supplierOptions}
-                          placeholder="เลือก Supplier"
-                          searchPlaceholder="ค้นหา Supplier..."
-                          emptyMessage="ไม่พบ Supplier"
-                          required
-                        />
-                      ) : (
-                        <input
-                          name="supplierId"
-                          placeholder="เช่น SUP-001"
-                          value={selectedSupplierId}
-                          onChange={(event) => setSelectedSupplierId(event.target.value)}
-                          required
-                        />
+                      <SearchableSelect
+                        key={`supplier-${formResetKey}`} // ใช้ formKey เพื่อ reset ค่าตอนเปิด modal ใหม่
+                        name="supplierId" // อาจไม่จำเป็นถ้าใช้ State แต่ใส่ไว้เผื่อ
+                        value={selectedSupplierId}
+                        onChange={setSelectedSupplierId} // อัปเดต State โดยตรง
+                        // เพิ่ม option เริ่มต้น และรวมกับ supplierOptions
+                        options={[{ value: '', label: 'เลือก Supplier' }, ...supplierOptions]}
+                        placeholder="เลือก Supplier"
+                        searchPlaceholder="ค้นหา Supplier..."
+                        emptyMessage="ไม่พบ Supplier"
+                        // ทำให้ disabled ถ้าไม่มีตัวเลือก (ไม่นับ option เริ่มต้น)
+                        disabled={supplierOptions.length === 0}
+                      />
+                      {/* (Optional) แสดงข้อความถ้าไม่มี supplier */}
+                      {supplierOptions.length === 0 && (
+                        <p className="text-xs text-slate-500">ยังไม่มีข้อมูล Supplier โปรดเพิ่มในเมนู Suppliers</p>
                       )}
                     </div>
                     <div className="space-y-2">
