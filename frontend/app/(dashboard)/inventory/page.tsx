@@ -173,25 +173,10 @@ export default function InventoryPage() {
                   }}
                   className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 md:w-auto"
                 >
-                  เปิดฟอร์มเพิ่มสินค้า
+                  เพิ่มสินค้าใหม่
                 </button>
               )}
-              {canCreateCustomers && (
-                <Link
-                  href="/customers"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 md:w-auto"
-                >
-                  สร้าง Customer
-                </Link>
-              )}
-              {canCreateOrders && (
-                <Link
-                  href="/orders"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 md:w-auto"
-                >
-                  สร้าง Order
-                </Link>
-              )}
+
             </div>
             <p className="text-xs text-slate-400">แสดง {filteredProducts.length} จาก {products?.length ?? 0} รายการ</p>
           </div>

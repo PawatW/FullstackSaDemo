@@ -146,7 +146,7 @@ export default function StockPage() {
                 }}
                 className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
               >
-                เปิดฟอร์ม Stock-In
+                Stock-In
               </button>
             </div>
           </section>

@@ -289,7 +289,7 @@ export default function OrdersPage() {
               }}
               className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
             >
-              เปิดฟอร์มสร้าง Order
+              สร้าง Order
             </button>
           </div>
         </section>

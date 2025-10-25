@@ -251,7 +251,7 @@ export default function CustomersPage() {
                 }}
                 className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
               >
-                เปิดฟอร์มเพิ่มลูกค้า
+                เพิ่มลูกค้าใหม่
               </button>
             </div>
           </section>

@@ -238,7 +238,7 @@ export default function SuppliersPage() {
                 }}
                 className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
               >
-                เปิดฟอร์มเพิ่ม Supplier
+                เพิ่ม Supplier ใหม่
               </button>
             </div>
           </section>
