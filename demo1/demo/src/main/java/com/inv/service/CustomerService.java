@@ -53,6 +53,44 @@ public class CustomerService {
         return customer;
     }
 
+    public Customer updateCustomer(String customerId, Customer payload) {
+        Customer existing = customerRepository.findById(customerId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ไม่พบลูกค้า (Customer not found)");
+        }
+
+        String name = trimToNull(payload.getCustomerName());
+        if (name == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "กรุณาระบุชื่อลูกค้า (Customer name is required)");
+        }
+
+        String address = trimToNull(payload.getAddress());
+        String phone = trimToNull(payload.getPhone());
+        String email = trimToNull(payload.getEmail());
+
+        if (phone != null) {
+            Customer phoneOwner = customerRepository.findByPhone(phone);
+            if (phoneOwner != null && !phoneOwner.getCustomerId().equals(customerId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "เบอร์โทรศัพท์นี้มีในระบบแล้ว (Phone number already exists)");
+            }
+        }
+
+        if (email != null) {
+            Customer emailOwner = customerRepository.findByEmail(email);
+            if (emailOwner != null && !emailOwner.getCustomerId().equals(customerId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "อีเมลนี้มีในระบบแล้ว (Email already exists)");
+            }
+        }
+
+        customerRepository.update(customerId, name, address, phone, email);
+
+        Customer updated = customerRepository.findById(customerId);
+        if (updated == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปเดตลูกค้าได้ (Unable to update customer)");
+        }
+        return updated;
+    }
+
     private String trimToNull(String value) {
         if (value == null) {
             return null;

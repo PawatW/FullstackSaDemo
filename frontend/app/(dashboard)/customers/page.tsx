@@ -22,6 +22,10 @@ export default function CustomersPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [inspectedCustomerId, setInspectedCustomerId] = useState<string | null>(null);
   const [isDetailModalOpen, setDetailModalOpen] = useState(false);
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+  const [editFormResetKey, setEditFormResetKey] = useState(0);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const canCreate = role === 'SALES';
 
@@ -51,6 +55,13 @@ export default function CustomersPage() {
     }
     return (customers ?? []).find((customer) => customer.customerId === inspectedCustomerId) ?? null;
   }, [customers, inspectedCustomerId]);
+
+  const editingCustomer = useMemo(() => {
+    if (!editingCustomerId) {
+      return null;
+    }
+    return (customers ?? []).find((customer) => customer.customerId === editingCustomerId) ?? null;
+  }, [customers, editingCustomerId]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -100,12 +111,75 @@ export default function CustomersPage() {
     setDetailModalOpen(true);
   };
 
+  const handleOpenEditCustomer = (customerId: string) => {
+    setEditingCustomerId(customerId);
+    setEditModalOpen(true);
+    setError(null);
+    setSuccessMessage(null);
+    setEditFormResetKey((prev) => prev + 1);
+  };
+
+  const handleCloseEditCustomer = () => {
+    setEditModalOpen(false);
+    setEditingCustomerId(null);
+    setEditFormResetKey((prev) => prev + 1);
+    setIsUpdating(false);
+  };
+
+  const handleUpdateCustomer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || !editingCustomerId) return;
+
+    const formData = new FormData(event.currentTarget);
+    const customerName = String(formData.get('customerName') ?? '').trim();
+
+    if (!customerName) {
+      setError('กรุณากรอกชื่อลูกค้า');
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setIsUpdating(true);
+
+    const payload = {
+      customerName,
+      address: toOptional(formData.get('address')),
+      phone: toOptional(formData.get('phone')),
+      email: toOptional(formData.get('email'))
+    };
+
+    try {
+      await apiFetch<Customer>(`/customers/${editingCustomerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+        token
+      });
+      setSuccessMessage('อัปเดตข้อมูลลูกค้าเรียบร้อย');
+      handleCloseEditCustomer();
+      mutate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถอัปเดตลูกค้าได้');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   useEffect(() => {
     if (inspectedCustomerId && !(customers ?? []).some((customer) => customer.customerId === inspectedCustomerId)) {
       setInspectedCustomerId(null);
       setDetailModalOpen(false);
     }
   }, [customers, inspectedCustomerId]);
+
+  useEffect(() => {
+    if (editingCustomerId && !(customers ?? []).some((customer) => customer.customerId === editingCustomerId)) {
+      setEditModalOpen(false);
+      setEditingCustomerId(null);
+      setEditFormResetKey((prev) => prev + 1);
+      setIsUpdating(false);
+    }
+  }, [customers, editingCustomerId]);
 
   return (
     <div className="space-y-8">
@@ -174,13 +248,24 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-sm text-slate-500">{customer.phone || '-'}</td>
                       <td className="px-4 py-3 text-sm text-slate-500">{customer.email || '-'}</td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleInspectCustomer(customer.customerId)}
-                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
-                        >
-                          {isSelected ? 'ซ่อน' : 'ดูรายละเอียด'}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleInspectCustomer(customer.customerId)}
+                            className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:border-primary-200 hover:bg-primary-50"
+                          >
+                            {isSelected ? 'ซ่อน' : 'ดูรายละเอียด'}
+                          </button>
+                          {canCreate && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCustomer(customer.customerId)}
+                              className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              แก้ไข
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -228,6 +313,68 @@ export default function CustomersPage() {
                     <p className="mt-1 text-slate-800">{inspectedCustomer.address || 'ไม่ระบุที่อยู่'}</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && editingCustomer && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">แก้ไขข้อมูลลูกค้า</h2>
+                    <p className="text-sm text-slate-500">
+                      {editingCustomer.customerId} • {editingCustomer.customerName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCloseEditCustomer}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={editFormResetKey} onSubmit={handleUpdateCustomer} className="mt-6 space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">ชื่อลูกค้า</label>
+                      <input name="customerName" defaultValue={editingCustomer.customerName} required />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">เบอร์โทร</label>
+                      <input name="phone" defaultValue={editingCustomer.phone ?? ''} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">อีเมล</label>
+                      <input name="email" type="email" defaultValue={editingCustomer.email ?? ''} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-slate-500">ที่อยู่</label>
+                      <textarea name="address" rows={3} defaultValue={editingCustomer.address ?? ''} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseEditCustomer}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdating}
+                      className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {isUpdating ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

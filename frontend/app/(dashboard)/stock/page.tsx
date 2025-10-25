@@ -15,11 +15,15 @@ export default function StockPage() {
   const [isStockInModalOpen, setStockInModalOpen] = useState(false);
   const [formResetKey, setFormResetKey] = useState(0);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [isAdjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [adjustFormResetKey, setAdjustFormResetKey] = useState(0);
+  const [selectedAdjustProductId, setSelectedAdjustProductId] = useState('');
+  const [isAdjustSubmitting, setIsAdjustSubmitting] = useState(false);
   const [transactionSearch, setTransactionSearch] = useState('');
   const [inspectedTransactionId, setInspectedTransactionId] = useState<string | null>(null);
   const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
 
-  const { data: products } = useAuthedSWR<Product[]>(role ? '/products' : null, token);
+  const { data: products, mutate: mutateProducts } = useAuthedSWR<Product[]>(role ? '/products' : null, token);
   const { data: transactions, mutate } = useAuthedSWR<StockTransaction[]>(
     role === 'WAREHOUSE' || role === 'ADMIN' ? '/stock/transactions' : null,
     token,
@@ -28,7 +32,7 @@ export default function StockPage() {
     }
   );
 
-  const canStockIn = role === 'WAREHOUSE' || role === 'ADMIN';
+  const canStockIn = role === 'WAREHOUSE';
   const canViewTransactions = role === 'WAREHOUSE' || role === 'ADMIN';
 
   const productOptions = useMemo<SearchableOption[]>(() => {
@@ -119,6 +123,49 @@ export default function StockPage() {
     }
   };
 
+  const handleAdjustStock = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token) return;
+    const form = event.currentTarget;
+    setError(null);
+    setMessage(null);
+
+    const formData = new FormData(form);
+    const productId = String(formData.get('productId') ?? '').trim();
+    const diffRaw = formData.get('diff');
+    const diff = diffRaw === null || diffRaw === '' ? Number.NaN : Number(diffRaw);
+
+    if (!productId) {
+      setError('กรุณาเลือกสินค้า');
+      return;
+    }
+
+    if (!Number.isFinite(diff) || diff === 0) {
+      setError('จำนวนที่ปรับต้องไม่เป็นศูนย์');
+      return;
+    }
+
+    setIsAdjustSubmitting(true);
+
+    try {
+      await apiFetch<void>(`/products/${productId}/adjust?diff=${diff}`, {
+        method: 'PUT',
+        token
+      });
+      setMessage('ปรับจำนวนสินค้าเรียบร้อย');
+      form.reset();
+      setAdjustModalOpen(false);
+      setAdjustFormResetKey((prev) => prev + 1);
+      setSelectedAdjustProductId('');
+      mutate();
+      mutateProducts?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถปรับจำนวนสินค้าได้');
+    } finally {
+      setIsAdjustSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header className="space-y-2">
@@ -135,19 +182,34 @@ export default function StockPage() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">บันทึกสินค้าเข้า (Stock-In)</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setMessage(null);
-                  setStockInModalOpen(true);
-                  setFormResetKey((prev) => prev + 1);
-                  setSelectedProductId('');
-                }}
-                className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
-              >
-                Stock-In
-              </button>
+              <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setMessage(null);
+                    setStockInModalOpen(true);
+                    setFormResetKey((prev) => prev + 1);
+                    setSelectedProductId('');
+                  }}
+                  className="w-full rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+                >
+                  Stock-In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setMessage(null);
+                    setAdjustModalOpen(true);
+                    setAdjustFormResetKey((prev) => prev + 1);
+                    setSelectedAdjustProductId('');
+                  }}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 md:w-auto"
+                >
+                  ปรับสต็อก
+                </button>
+              </div>
             </div>
           </section>
 
@@ -215,6 +277,78 @@ export default function StockPage() {
                         </button>
                         <button type="submit" className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white">
                           บันทึก
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isAdjustModalOpen && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+              <div className="flex min-h-full items-center justify-center p-4">
+                <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+                  <div className="max-h-[85vh] overflow-y-auto p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-slate-900">ปรับจำนวนสินค้า</h2>
+                        <p className="text-sm text-slate-500">เพิ่มหรือลดจำนวนสินค้าในคลังให้ตรงกับสต็อกจริง</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustModalOpen(false);
+                          setAdjustFormResetKey((prev) => prev + 1);
+                          setSelectedAdjustProductId('');
+                        }}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                      >
+                        ปิด
+                      </button>
+                    </div>
+                    <form key={adjustFormResetKey} onSubmit={handleAdjustStock} className="mt-6 space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-slate-500">สินค้า</label>
+                        <SearchableSelect
+                          key={`adjust-product-${adjustFormResetKey}`}
+                          name="productId"
+                          value={selectedAdjustProductId}
+                          onChange={setSelectedAdjustProductId}
+                          options={[{ value: '', label: 'เลือกสินค้า' }, ...productOptions]}
+                          placeholder="เลือกสินค้า"
+                          searchPlaceholder="ค้นหาสินค้า..."
+                          emptyMessage="ไม่พบสินค้า"
+                          disabled={productOptions.length === 0}
+                        />
+                        {productOptions.length === 0 && (
+                          <p className="text-xs text-rose-500">ยังไม่มีข้อมูลสินค้า</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-slate-500">จำนวนที่ต้องการปรับ</label>
+                        <input name="diff" type="number" required />
+                        <p className="text-xs text-slate-400">ใส่ค่าบวกเพื่อเพิ่ม และค่าติดลบเพื่อลดจำนวนสินค้า</p>
+                      </div>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdjustModalOpen(false);
+                            setAdjustFormResetKey((prev) => prev + 1);
+                            setSelectedAdjustProductId('');
+                          }}
+                          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isAdjustSubmitting}
+                          className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isAdjustSubmitting ? 'กำลังบันทึก...' : 'บันทึกการปรับสต็อก'}
                         </button>
                       </div>
                     </form>

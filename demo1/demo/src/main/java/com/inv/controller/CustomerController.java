@@ -30,4 +30,10 @@ public class CustomerController {
         Customer newCustomer = customerService.createCustomer(customer);
         return ResponseEntity.ok(newCustomer);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Customer> updateCustomer(@PathVariable String id, @RequestBody Customer customer) {
+        Customer updatedCustomer = customerService.updateCustomer(id, customer);
+        return ResponseEntity.ok(updatedCustomer);
+    }
 }

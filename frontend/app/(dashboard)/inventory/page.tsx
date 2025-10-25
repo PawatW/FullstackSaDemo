@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../components/AuthContext';
 import { useAuthedSWR } from '../../../lib/swr';
@@ -19,12 +18,21 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailModalOpen, setDetailModalOpen] = useState(false);
   const [isDetailImageError, setDetailImageError] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [isUpdateSubmitting, setIsUpdateSubmitting] = useState(false);
+  const [editFormResetKey, setEditFormResetKey] = useState(0);
+  const [isEditImageError, setEditImageError] = useState(false);
 
   useEffect(() => {
     setDetailImageError(false);
   }, [selectedProduct]);
 
-  const canManage = role === 'WAREHOUSE' || role === 'ADMIN';
+  useEffect(() => {
+    setEditImageError(false);
+  }, [productToEdit]);
+
+  const canManage = role === 'WAREHOUSE';
   const canCreateCustomers = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
   const canCreateOrders = role === 'SALES' || role === 'TECHNICIAN' || role === 'ADMIN';
   const { data: suppliers } = useAuthedSWR<Supplier[]>(canManage ? '/suppliers' : null, token);
@@ -49,6 +57,16 @@ export default function InventoryPage() {
     );
   }, [products, filter]);
 
+  useEffect(() => {
+    if (!selectedProduct || !products) {
+      return;
+    }
+    const updated = products.find((candidate) => candidate.productId === selectedProduct.productId);
+    if (updated && updated !== selectedProduct) {
+      setSelectedProduct(updated);
+    }
+  }, [products, selectedProduct]);
+
   const handleOpenDetails = (product: Product) => {
     setSelectedProduct(product);
     setDetailImageError(false);
@@ -59,6 +77,78 @@ export default function InventoryPage() {
     setDetailModalOpen(false);
     setSelectedProduct(null);
     setDetailImageError(false);
+  };
+
+  const handleOpenEdit = (product: Product) => {
+    setProductToEdit(product);
+    setEditImageError(false);
+    setEditModalOpen(true);
+    setError(null);
+    setSuccessMessage(null);
+    setEditFormResetKey((prev) => prev + 1);
+  };
+
+  const handleCloseEdit = () => {
+    setEditModalOpen(false);
+    setProductToEdit(null);
+    setEditImageError(false);
+    setEditFormResetKey((prev) => prev + 1);
+  };
+
+  const handleUpdateProduct = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || !productToEdit) return;
+
+    const formData = new FormData(event.currentTarget);
+    const productName = String(formData.get('productName') ?? '').trim();
+    const description = String(formData.get('description') ?? '').trim();
+    const imageFile = formData.get('imageFile');
+
+    if (!productName) {
+      setError('กรุณากรอกชื่อสินค้า');
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setIsUpdateSubmitting(true);
+
+    let imageUrl: string | null = productToEdit.imageUrl ?? null;
+
+    if (imageFile instanceof File && imageFile.size > 0) {
+      try {
+        const uploadResult = await uploadProductImage(imageFile, token);
+        imageUrl = uploadResult.url;
+      } catch (uploadError) {
+        setIsUpdateSubmitting(false);
+        setError(uploadError instanceof Error ? uploadError.message : 'ไม่สามารถอัปโหลดรูปภาพได้');
+        return;
+      }
+    }
+
+    const payload = {
+      productName,
+      description: description || null,
+      imageUrl
+    };
+
+    try {
+      const updatedProduct = await apiFetch<Product>(`/products/${productToEdit.productId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+        token
+      });
+      setSuccessMessage('อัปเดตข้อมูลสินค้าเรียบร้อย');
+      setEditModalOpen(false);
+      setProductToEdit(null);
+      setEditFormResetKey((prev) => prev + 1);
+      setSelectedProduct((prev) => (prev && prev.productId === updatedProduct.productId ? updatedProduct : prev));
+      mutate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถอัปเดตสินค้าได้');
+    } finally {
+      setIsUpdateSubmitting(false);
+    }
   };
 
   const handleCreateProduct = async (event: FormEvent<HTMLFormElement>) => {
@@ -226,13 +316,24 @@ export default function InventoryPage() {
                       : '-'}
                   </td>
                   <td className="px-4 py-3 text-right text-sm">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDetails(product)}
-                      className="rounded-lg border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:bg-slate-50"
-                    >
-                      ดูรายละเอียด
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDetails(product)}
+                        className="rounded-lg border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:bg-slate-50"
+                      >
+                        ดูรายละเอียด
+                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(product)}
+                          className="rounded-lg border border-primary-200 px-3 py-1 font-semibold text-primary-600 transition hover:bg-primary-50"
+                        >
+                          แก้ไข
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -328,6 +429,74 @@ export default function InventoryPage() {
                       className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกสินค้า'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canManage && productToEdit && isEditModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl">
+              <div className="max-h-[85vh] overflow-y-auto p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">แก้ไขสินค้า</h2>
+                    <p className="text-sm text-slate-500">ปรับปรุงชื่อสินค้า คำอธิบาย หรือเพิ่มรูปสินค้าใหม่</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCloseEdit}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+                  >
+                    ปิด
+                  </button>
+                </div>
+                <form key={editFormResetKey} onSubmit={handleUpdateProduct} className="mt-6 space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-slate-500">ชื่อสินค้า</label>
+                    <input name="productName" required defaultValue={productToEdit.productName} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-slate-500">คำอธิบาย</label>
+                    <textarea name="description" rows={3} defaultValue={productToEdit.description ?? ''} placeholder="ระบุคำอธิบายสินค้า" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-slate-500">รูปสินค้า (อัปโหลดใหม่)</label>
+                    <input name="imageFile" type="file" accept="image/*" className="block w-full" />
+                    <p className="text-xs text-slate-400">หากไม่เลือกรูปใหม่ ระบบจะใช้รูปเดิมโดยอัตโนมัติ</p>
+                  </div>
+                  {productToEdit.imageUrl && !isEditImageError && (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-slate-500">รูปปัจจุบัน</label>
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                        <img
+                          src={productToEdit.imageUrl}
+                          alt={productToEdit.productName}
+                          className="h-48 w-full bg-white object-contain"
+                          onError={() => setEditImageError(true)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseEdit}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdateSubmitting}
+                      className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isUpdateSubmitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
                     </button>
                   </div>
                 </form>

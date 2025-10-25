@@ -51,8 +51,11 @@ export default function OrdersPage() {
   const { data: customers } = useAuthedSWR<Customer[]>('/customers', token);
   const { data: products } = useAuthedSWR<Product[]>('/products', token);
   const { data: allOrders, mutate: mutateAll } = useAuthedSWR<Order[]>(shouldLoadAllOrders ? '/orders' : null, token);
-  const { data: confirmedOrders, mutate: mutateConfirmed } = useAuthedSWR<Order[]>(role === 'TECHNICIAN' || role === 'ADMIN' || role === 'SALES' ? '/orders/confirmed' : null, token);
-  const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Order[]>(role === 'SALES' || role === 'ADMIN' ? '/orders/ready-to-close' : null, token, {
+  const { data: confirmedOrders, mutate: mutateConfirmed } = useAuthedSWR<Order[]>(
+    role === 'TECHNICIAN' || role === 'SALES' ? '/orders/confirmed' : null,
+    token
+  );
+  const { data: readyToClose, mutate: mutateReady } = useAuthedSWR<Order[]>(role === 'SALES' ? '/orders/ready-to-close' : null, token, {
     refreshInterval: 20000
   });
   const { data: orderItems } = useAuthedSWR<OrderItem[]>(inspectedOrderId ? `/orders/${inspectedOrderId}/items` : null, token, {
@@ -64,7 +67,7 @@ export default function OrdersPage() {
     { revalidateOnFocus: false }
   );
 
-  const canCreate = role === 'SALES' || role === 'ADMIN';
+  const canCreate = role === 'SALES';
 
   const customerOptions = useMemo<SearchableOption[]>(() => {
     return (customers ?? []).map((customer) => ({
@@ -434,7 +437,8 @@ export default function OrdersPage() {
     </div>
   )}
 
-      <section className="card space-y-4 p-6">
+      {role !== 'ADMIN' && (
+        <section className="card space-y-4 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{isSales ? 'All Order' : 'Order ที่ได้รับการยืนยัน'}</h2>
@@ -573,7 +577,8 @@ export default function OrdersPage() {
             </div>
           </div>
         )}
-      </section>
+        </section>
+      )}
 
       {role === 'TECHNICIAN' && isOrderModalOpen && inspectedOrderId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -637,7 +642,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {(role === 'SALES' || role === 'ADMIN') && (
+      {role === 'SALES' && (
         <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Order ที่พร้อมปิด</h2>
