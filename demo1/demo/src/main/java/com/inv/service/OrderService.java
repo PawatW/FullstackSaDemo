@@ -57,6 +57,9 @@ public class OrderService {
         if (orderRepository.hasPendingRequests(orderId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ยังมีคำขอเบิกสินค้าที่ยังค้างอยู่ ไม่สามารถปิด Order ได้");
         }
-        orderRepository.closeOrder(orderId, staffId);
+        int updatedRows = orderRepository.closeOrder(orderId, staffId);
+        if (updatedRows == 0) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "อนุญาตให้พนักงานเจ้าของ Order ปิดงานเท่านั้น");
+        }
     }
 }

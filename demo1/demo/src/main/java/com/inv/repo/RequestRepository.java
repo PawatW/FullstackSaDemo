@@ -138,7 +138,11 @@ public class RequestRepository {
         return jdbcTemplate.query(sql, this::mapRow);
     }
 
-    public void closeRequest(String requestId, String staffId) { // รับ String
-        jdbcTemplate.update("UPDATE Request SET status = 'Closed' WHERE request_id = ?", requestId);
+    public int closeRequest(String requestId, String staffId) { // รับ String
+        return jdbcTemplate.update(
+                "UPDATE Request SET status = 'Closed' WHERE request_id = ? AND staff_id = ?",
+                requestId,
+                staffId
+        );
     }
 }

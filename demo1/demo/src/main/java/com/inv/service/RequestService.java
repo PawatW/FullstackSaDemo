@@ -6,8 +6,10 @@ import com.inv.model.RequestItem;
 import com.inv.repo.OrderRepository;
 import com.inv.repo.RequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -94,6 +96,9 @@ public class RequestService {
     }
 
     public void closeRequest(String requestId, String staffId) { // รับ String
-        requestRepository.closeRequest(requestId, staffId);
+        int updatedRows = requestRepository.closeRequest(requestId, staffId);
+        if (updatedRows == 0) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "อนุญาตให้พนักงานเจ้าของคำขอปิดงานเท่านั้น");
+        }
     }
 }
