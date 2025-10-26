@@ -17,12 +17,17 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import static org.springframework.security.config.Customizer.withDefaults;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.Arrays;
 
 @Configuration
 public class SecurityConfig {
 
     @Autowired
     private JwtFilter jwtFilter;
+
+    @Value("${cors.allowed-origins:${CORS_ALLOWED_ORIGINS:http://localhost:3000}}")
+        private String allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -36,7 +41,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("http://localhost:3000"); // React dev server
+        // configuration.addAllowedOrigin("http://localhost:3000"); // React dev server
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.addAllowedMethod("*"); // GET, POST, PUT, DELETE
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);
